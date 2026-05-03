@@ -64,27 +64,35 @@ lesson: one source file per shared number</code></pre>
           <p class="eyebrow">how it works</p>
           <h2>What Cloudbox makes.</h2>
         </div>
-        <div class="workflow-grid">
-          <article>
-            <span>1</span>
-            <h3>Start with a worker</h3>
-            <p>Write a short worker description.</p>
-          </article>
-          <article>
-            <span>2</span>
-            <h3>Create the computer</h3>
-            <p>Cloudbox creates folders, files, drafts, notes, and coworkers.</p>
-          </article>
-          <article>
-            <span>3</span>
-            <h3>Add work history</h3>
-            <p>Cloudbox adds activity, messages, changes, and finished work.</p>
-          </article>
-          <article>
-            <span>4</span>
-            <h3>Read the report</h3>
-            <p>Cloudbox summarizes the run, scores it, and lists lessons.</p>
-          </article>
+        <div class="workflow-body">
+          <div class="diagram-card" aria-label="Cloudbox flow diagram">
+            <pre class="mermaid">flowchart LR
+  A["Worker"] --> B["Files"]
+  B --> C["Work history"]
+  C --> D["Report"]</pre>
+          </div>
+          <div class="workflow-grid">
+            <article>
+              <span>1</span>
+              <h3>Start with a worker</h3>
+              <p>Write a short worker description.</p>
+            </article>
+            <article>
+              <span>2</span>
+              <h3>Create the computer</h3>
+              <p>Cloudbox creates folders, files, drafts, notes, and coworkers.</p>
+            </article>
+            <article>
+              <span>3</span>
+              <h3>Add work history</h3>
+              <p>Cloudbox adds activity, messages, changes, and finished work.</p>
+            </article>
+            <article>
+              <span>4</span>
+              <h3>Read the report</h3>
+              <p>Cloudbox summarizes the run, scores it, and lists lessons.</p>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -128,6 +136,12 @@ lesson: one source file per shared number</code></pre>
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+      if (window.mermaid) {
+        mermaid.initialize({ startOnLoad: true, theme: "base", securityLevel: "strict" });
+      }
+    </script>
     <script src="./app.js"></script>
   </body>
 </html>

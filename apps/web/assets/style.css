@@ -261,17 +261,46 @@ pre {
   padding: 44px 0 16px;
 }
 
+.workflow-body,
 .workflow-grid {
   display: grid;
   gap: 12px;
+}
+
+.workflow-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.diagram-card,
 .workflow-grid article {
   background: #ffffff;
   border: 1px solid #d8d0be;
   border-radius: 8px;
   padding: 16px;
+}
+
+.diagram-card {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 96px;
+  overflow: hidden;
+}
+
+.diagram-card pre {
+  background: transparent;
+  color: #111827;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.diagram-card svg {
+  display: block;
+  margin: 0 auto;
+  max-height: 88px;
+  max-width: 100%;
 }
 
 .workflow-grid span {
