@@ -143,9 +143,9 @@ const fallbackState = {
 
 function initDemo() {
   let state = null;
-  let activeTab = "world";
+  let activeTab = "scenario";
 
-  const summary = document.querySelector("#summary");
+  const guide = document.querySelector("#demo-guide");
   const panel = document.querySelector("#panel");
   const form = document.querySelector("#generate-form");
   const persona = document.querySelector("#persona");
@@ -178,27 +178,61 @@ function initDemo() {
   function render() {
     if (!state) return;
     const { computer, retrospective } = state;
-    summary.innerHTML = [
-      stat("Profile", `${computer.profile.identity}<br>${computer.profile.occupation}`),
-      stat("Files", `${computer.filesystem.files.length} files<br>${computer.filesystem.directories.length} directories`),
-      stat("Run", `${computer.simulation.period.workingDays} workdays<br>${computer.simulation.activities.length} activities`),
-      stat("Score", `${retrospective.percentage}%<br>${retrospective.score}/${retrospective.maxScore} points`),
+    guide.innerHTML = [
+      stat("1. Scenario", "A realistic workplace task with deadlines and review requirements"),
+      stat("2. Workspace", `${computer.filesystem.files.length} files across ${computer.filesystem.directories.length} folders`),
+      stat("3. Agent work", `${computer.simulation.activities.length} recorded activities over ${computer.simulation.period.workingDays} workdays`),
+      stat("4. Results", `${retrospective.percentage}% scorecard plus reusable lessons`),
     ].join("");
 
-    if (activeTab === "world") renderWorld(computer);
-    if (activeTab === "brief") renderBrief(computer);
-    if (activeTab === "evidence") renderEvidence(computer);
-    if (activeTab === "scorecard") renderScorecard(retrospective);
+    if (activeTab === "scenario") renderScenario(computer);
+    if (activeTab === "workspace") renderWorkspace(computer);
+    if (activeTab === "work") renderWork(computer);
+    if (activeTab === "results") renderResults(retrospective);
     if (activeTab === "downloads") renderDownloads(computer);
   }
 
-  function renderWorld(computer) {
+  function renderScenario(computer) {
+    panel.innerHTML = `
+      <div class="scenario-layout">
+        <section>
+          <p class="eyebrow">what you are testing</p>
+          <h2>Can an agent complete a multi-file client review package?</h2>
+          <p class="lede small">The agent has to use source files, update an analysis workbook, create a memo and deck, respond to reviewer expectations, and keep final numbers consistent.</p>
+        </section>
+        <div class="cards two-col">
+          ${computer.simulation.deliverables
+            .map(
+              (item) => `
+                <article>
+                  <h3>${escapeHtml(item.title)}</h3>
+                  <p>${escapeHtml(item.description)}</p>
+                  <p><strong>Target:</strong> ${escapeHtml(item.targetDate)}</p>
+                </article>
+              `,
+            )
+            .join("")}
+          <article>
+            <h3>Who is involved?</h3>
+            <ul>${computer.collaborators.map((collab) => `<li>${escapeHtml(collab.name)} · ${escapeHtml(collab.role)}</li>`).join("")}</ul>
+          </article>
+          <article>
+            <h3>What can go wrong?</h3>
+            <p>Figures can drift across spreadsheet, memo, deck, and PDF. Cloudbox turns that into an explicit scorecard item.</p>
+          </article>
+        </div>
+      </div>`;
+  }
+
+  function renderWorkspace(computer) {
     panel.innerHTML = `
       <div class="split">
         <div>
-          <h2>${escapeHtml(computer.name)}</h2>
+          <h2>The generated workspace</h2>
           <p>${escapeHtml(computer.profile.organization)} · ${escapeHtml(computer.profile.location)}</p>
-          <h3>Work habits</h3>
+          <h3>Why this matters</h3>
+          <p>Real office work is grounded in existing files, habits, drafts, and folder structure. This is the context the agent must use.</p>
+          <h3>Generated work habits</h3>
           <ul>
             <li>${escapeHtml(computer.profile.documentHabits)}</li>
             <li>${escapeHtml(computer.profile.spreadsheetUsage)}</li>
@@ -212,28 +246,11 @@ function initDemo() {
     `;
   }
 
-  function renderBrief(computer) {
-    panel.innerHTML = `<div class="cards two-col">
-      ${computer.simulation.deliverables
-        .map(
-          (item) => `
-            <article>
-              <h3>${escapeHtml(item.title)}</h3>
-              <p>${escapeHtml(item.description)}</p>
-              <p><strong>Target:</strong> ${escapeHtml(item.targetDate)}</p>
-            </article>
-          `,
-        )
-        .join("")}
-      <article>
-        <h3>Collaborators</h3>
-        <ul>${computer.collaborators.map((collab) => `<li>${escapeHtml(collab.name)} · ${escapeHtml(collab.role)}</li>`).join("")}</ul>
-      </article>
-    </div>`;
-  }
-
-  function renderEvidence(computer) {
-    panel.innerHTML = `<div class="timeline">${computer.simulation.activities
+  function renderWork(computer) {
+    panel.innerHTML = `
+      <h2>What the agent did</h2>
+      <p class="panel-intro">Cloudbox records the work trail so you can inspect whether the agent planned, used files, revised outputs, and handled review requirements.</p>
+      <div class="timeline">${computer.simulation.activities
       .map(
         (activity) => `
           <article>
@@ -246,10 +263,11 @@ function initDemo() {
       .join("")}</div>`;
   }
 
-  function renderScorecard(retrospective) {
+  function renderResults(retrospective) {
     panel.innerHTML = `
-      <h2>${retrospective.percentage}% scorecard</h2>
+      <h2>What the scorecard found</h2>
       <p>${escapeHtml(retrospective.summary)}</p>
+      <div class="result-score">${retrospective.percentage}%</div>
       <div class="cards">
         ${section("Strengths", retrospective.strengths)}
         ${section("Failure modes", retrospective.failureModes)}

@@ -140,6 +140,7 @@ button {
 .run-card,
 .panel,
 .summary-grid article,
+.demo-guide article,
 .feature-grid article,
 .cards article,
 .artifact-list article,
@@ -207,6 +208,7 @@ pre {
 
 .proof-strip,
 .summary-grid,
+.demo-guide,
 .feature-grid,
 .cards {
   display: grid;
@@ -220,13 +222,15 @@ pre {
 
 .proof-strip article,
 .summary-grid article,
+.demo-guide article,
 .feature-grid article,
 .cards article {
   padding: 16px;
 }
 
 .proof-strip h2,
-.summary-grid h2 {
+.summary-grid h2,
+.demo-guide h2 {
   font-size: 14px;
   margin: 0 0 8px;
   text-transform: uppercase;
@@ -234,6 +238,7 @@ pre {
 
 .proof-strip p,
 .summary-grid p,
+.demo-guide p,
 .feature-grid p,
 .cards p,
 .doc-page p,
@@ -290,7 +295,8 @@ select {
   padding: 10px 12px;
 }
 
-.summary-grid {
+.summary-grid,
+.demo-guide {
   margin-top: 24px;
 }
 
@@ -317,6 +323,30 @@ select {
 .panel {
   min-height: 420px;
   padding: 18px;
+}
+
+.scenario-layout {
+  display: grid;
+  gap: 22px;
+}
+
+.small {
+  font-size: 17px;
+}
+
+.panel-intro {
+  color: #4b5563;
+  line-height: 1.5;
+  max-width: 760px;
+}
+
+.result-score {
+  color: #0f766e;
+  font-size: 72px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 18px 0;
 }
 
 .split {
@@ -470,6 +500,7 @@ select {
 
   .proof-strip,
   .summary-grid,
+  .demo-guide,
   .feature-grid,
   .cards,
   .two-col {
