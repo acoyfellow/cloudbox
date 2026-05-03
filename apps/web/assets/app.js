@@ -9,10 +9,10 @@ async function initHome() {
   const state = await fetchJson("/api/demo").catch(() => fallbackState);
   const { computer, retrospective } = state;
   proof.innerHTML = [
-    stat("Generate", "A role-specific workplace with files, stakeholders, and deadlines"),
-    stat("Assign", "Give an agent a realistic work package instead of a one-shot prompt"),
-    stat("Inspect", `${computer.artifacts.length} artifacts and ${computer.simulation.period.workingDays} days of work history`),
-    stat("Compare", `${retrospective.percentage}% scorecard with ${retrospective.lessons.length} reusable lessons`),
+    stat("Persona", "Expand a short seed into a detailed work profile"),
+    stat("Computer", "Generate folders, source files, drafts, stakeholders, and deadlines"),
+    stat("Simulation", `${computer.artifacts.length} artifacts and ${computer.simulation.period.workingDays} days of work history`),
+    stat("Retrospective", `${retrospective.percentage}% scorecard with ${retrospective.lessons.length} extracted lessons`),
   ].join("");
 }
 
