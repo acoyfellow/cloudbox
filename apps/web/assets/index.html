@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cloudbox</title>
-    <meta name="description" content="Cloudbox spins up synthetic work environments for long-horizon agent evals on Cloudflare." />
+    <meta name="description" content="Cloudbox creates realistic workspaces for testing AI agents with files, tasks, collaborators, logs, and scorecards." />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body data-page="home">
@@ -20,59 +20,97 @@
     <main>
       <section class="home-hero">
         <div class="hero-copy">
-          <p class="eyebrow">agent eval environments on Cloudflare</p>
-          <h1>Test agents in realistic work environments.</h1>
+          <p class="eyebrow">workspaces for testing AI agents</p>
+          <h1>Give agents real work, not just prompts.</h1>
           <p class="lede">
-            Cloudbox generates realistic work environments with files, collaborators,
-            assignments, evidence, and scorecards. Deploy your own in minutes.
+            Cloudbox creates a complete test workspace: a job to do, folders and files to inspect,
+            collaborators to account for, a work history, and a scorecard for the result.
           </p>
           <div class="cta-row">
-            <a class="primary-cta" href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox">Deploy to Cloudflare</a>
-            <a class="secondary-cta" href="./docs.html">Read the docs</a>
+            <a class="primary-cta" href="./demo.html">Try the demo</a>
+            <a class="secondary-cta" href="./docs.html">Deploy your own</a>
           </div>
+          <p class="hero-note">Built as a Cloudflare reference app with Workers, D1, R2, Queues, Durable Objects, and Workers AI.</p>
         </div>
 
-        <section class="run-card" aria-label="Cloudbox demo run">
+        <section class="run-card" aria-label="Cloudbox demo preview">
           <div class="run-card-header">
-            <span>example evaluation</span>
-            <strong>Can an agent finish a multi-week client work package?</strong>
+            <span>demo preview</span>
+            <strong>Assignment: finish a client review package</strong>
           </div>
-          <dl>
-            <div><dt>Use case</dt><dd>Evaluate an agent on messy, realistic office work</dd></div>
-            <div><dt>Environment</dt><dd>Project folders, source files, drafts, stakeholders, and deadlines</dd></div>
-            <div><dt>Task</dt><dd>Create analysis, memo, deck, final package, and audit trail</dd></div>
-            <div><dt>Signal</dt><dd>Find whether the agent uses evidence and keeps files consistent</dd></div>
-          </dl>
-          <pre><code>lesson: every shared figure needs one authoritative source file
-score: 100% demo rubric
-export: /api/export</code></pre>
-          <a class="inline-link" href="./demo.html">Try the interactive demo →</a>
+          <div class="assignment-preview">
+            <div>
+              <span>Workspace</span>
+              <p>Source PDFs, spreadsheets, memo drafts, slide decks, stakeholder notes</p>
+            </div>
+            <div>
+              <span>Agent task</span>
+              <p>Use the evidence, revise the files, and prepare a final package</p>
+            </div>
+            <div>
+              <span>Review</span>
+              <p>Score consistency, evidence use, missed feedback, and final deliverables</p>
+            </div>
+          </div>
+          <pre><code>input: workplace + assignment
+output: files + log + scorecard
+lesson: shared numbers need one source of truth</code></pre>
+          <a class="inline-link" href="./demo.html">Open the demo -></a>
         </section>
+      </section>
+
+      <section class="workflow-section" aria-label="How Cloudbox works">
+        <div>
+          <p class="eyebrow">how it works</p>
+          <h2>A repeatable test run for real AI work.</h2>
+        </div>
+        <div class="workflow-grid">
+          <article>
+            <span>1</span>
+            <h3>Create a workspace</h3>
+            <p>Generate a role, project brief, folder tree, source files, drafts, and collaborator context.</p>
+          </article>
+          <article>
+            <span>2</span>
+            <h3>Give it to an agent</h3>
+            <p>Ask the agent to complete a realistic assignment that depends on evidence across files.</p>
+          </article>
+          <article>
+            <span>3</span>
+            <h3>Inspect the attempt</h3>
+            <p>Review the work trail, generated files, revisions, messages, and final package.</p>
+          </article>
+          <article>
+            <span>4</span>
+            <h3>Score the result</h3>
+            <p>Turn the run into a scorecard with lessons you can reuse in future tests.</p>
+          </article>
+        </div>
       </section>
 
       <section class="proof-strip" id="proof-strip"></section>
 
       <section class="section-block">
         <div>
-          <p class="eyebrow">what it creates</p>
-          <h2>Use Cloudbox when a prompt is too small.</h2>
+          <p class="eyebrow">use cases</p>
+          <h2>Use Cloudbox when the hard part is the workspace.</h2>
         </div>
         <div class="feature-grid">
           <article>
-            <h3>Agent evaluations</h3>
-            <p>Test whether an agent can complete long-running work with files, context, and changing requirements.</p>
+            <h3>Evaluate agents before a launch</h3>
+            <p>See whether an agent can find the right context, handle messy files, and finish a multi-step job.</p>
           </article>
           <article>
-            <h3>Training environments</h3>
-            <p>Generate repeatable practice worlds without exposing private user or company data.</p>
+            <h3>Build repeatable test scenarios</h3>
+            <p>Run the same workspace against different models, prompts, tools, or agent builds.</p>
           </article>
           <article>
-            <h3>Regression tests</h3>
-            <p>Run the same environment against different agents and compare artifacts, evidence, and scorecards.</p>
+            <h3>Create training environments</h3>
+            <p>Practice with realistic work data without exposing private customer or company accounts.</p>
           </article>
           <article>
-            <h3>Product demos</h3>
-            <p>Show agent behavior in a realistic workplace scenario without staging a real customer account.</p>
+            <h3>Show a product in context</h3>
+            <p>Demo an agent workflow with realistic files, stakeholders, outputs, and review evidence.</p>
           </article>
         </div>
       </section>
@@ -80,10 +118,13 @@ export: /api/export</code></pre>
       <section class="docs-band">
         <div>
           <p class="eyebrow">get started</p>
-          <h2>Set up your own instance.</h2>
-          <p>Start with the deployed demo, then clone, run locally, deploy to your own Cloudflare account, and generate your first environment.</p>
+          <h2>Run the demo, then deploy your own Cloudbox.</h2>
+          <p>The docs walk through the local app, Cloudflare deploy, data model, and how the generated workspaces map to the research behind the project.</p>
         </div>
-        <a class="primary-cta" href="./docs.html">Start with docs</a>
+        <div class="cta-row compact">
+          <a class="primary-cta" href="./docs.html">Read the docs</a>
+          <a class="secondary-cta" href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox">Deploy to Cloudflare</a>
+        </div>
       </section>
     </main>
 
