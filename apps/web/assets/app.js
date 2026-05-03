@@ -6,6 +6,7 @@ if (pageType === "docs") initDocs();
 
 async function initHome() {
   const proof = document.querySelector("#proof-strip");
+  if (!proof) return;
   const state = await fetchJson("/api/demo").catch(() => fallbackState);
   const { computer, retrospective } = state;
   proof.innerHTML = [

@@ -67,6 +67,11 @@ main {
   align-self: center;
 }
 
+.simple-hero {
+  grid-template-columns: minmax(0, 760px);
+  min-height: 420px;
+}
+
 .eyebrow {
   color: #0f766e;
   font-size: 13px;
@@ -236,6 +241,71 @@ pre {
   color: #0f766e;
   font-weight: 800;
   text-decoration: none;
+}
+
+.example-section {
+  border-top: 1px solid #d8d0be;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
+  padding: 44px 0;
+}
+
+.example-heading p:not(.eyebrow) {
+  color: #4b5563;
+  line-height: 1.48;
+  margin: 0;
+}
+
+.example-card {
+  background: #ffffff;
+  border: 1px solid #d8d0be;
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(17, 24, 39, 0.1);
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.82fr);
+  padding: 20px;
+}
+
+.example-main h3 {
+  margin-bottom: 16px;
+}
+
+.example-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.example-list div {
+  border-top: 1px solid #e7e1d4;
+  padding-top: 12px;
+}
+
+.example-list span {
+  color: #0f766e;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.example-list p {
+  color: #4b5563;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.example-card pre {
+  align-self: stretch;
+  display: flex;
+  margin: 0;
+}
+
+.example-card code {
+  align-self: center;
 }
 
 .proof-strip,
@@ -597,6 +667,8 @@ select {
 @media (max-width: 860px) {
   .home-hero,
   .demo-hero,
+  .example-section,
+  .example-card,
   .workflow-section,
   .section-block,
   .docs-band,
@@ -607,6 +679,7 @@ select {
   }
 
   .workflow-grid,
+  .example-list,
   .proof-strip,
   .summary-grid,
   .demo-guide,

@@ -7,8 +7,8 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 try {
   await page.goto(baseUrl, { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: /Create sample workspaces for agents/i }).waitFor();
-  await page.getByText(/demo preview/i).waitFor();
-  await page.getByRole("link", { name: "Read the docs" }).click();
+  await page.getByText(/Client review project/i).waitFor();
+  await page.getByRole("navigation").getByRole("link", { name: "Docs" }).click();
   await page.getByRole("heading", { name: "Start here" }).waitFor();
   await page.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: /Can an agent complete a realistic client review/i }).waitFor();

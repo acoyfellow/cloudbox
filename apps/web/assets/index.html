@@ -18,130 +18,46 @@
     </header>
 
     <main>
-      <section class="home-hero">
+      <section class="home-hero simple-hero">
         <div class="hero-copy">
           <p class="eyebrow">agent test workspaces</p>
           <h1>Create sample workspaces for agents.</h1>
           <p class="lede">
-            Describe a role. Cloudbox creates files, tasks, work history, documents,
-            and a report.
+            Give an agent a workspace with files, tasks, history, finished documents,
+            and a scorecard.
           </p>
           <div class="cta-row">
             <a class="primary-cta" href="./demo.html">Try the demo</a>
             <a class="secondary-cta" href="./docs.html">Deploy your own</a>
           </div>
-          <p class="hero-note">Built as a Cloudflare reference app with Workers, D1, R2, Queues, Durable Objects, and Workers AI.</p>
-        </div>
-
-        <section class="run-card" aria-label="Cloudbox demo preview">
-          <div class="run-card-header">
-            <span>demo preview</span>
-            <strong>Example: client review project</strong>
-          </div>
-          <div class="assignment-preview">
-            <div>
-              <span>Workspace</span>
-              <p>Profile, folders, PDFs, spreadsheets, drafts, and slides</p>
-            </div>
-            <div>
-              <span>Work history</span>
-              <p>Daily notes, messages, file changes, decisions, and deadlines</p>
-            </div>
-            <div>
-              <span>Report</span>
-              <p>Summary, scores, key files, and lessons</p>
-            </div>
-          </div>
-          <pre><code>input: role description
-output: workspace + work history
-lesson: one source file per shared number</code></pre>
-          <a class="inline-link" href="./demo.html">Open the demo -></a>
-        </section>
-      </section>
-
-      <section class="workflow-section" aria-label="How Cloudbox works">
-        <div>
-          <p class="eyebrow">how it works</p>
-          <h2>What Cloudbox makes.</h2>
-        </div>
-        <div class="workflow-body">
-          <div class="diagram-card" aria-label="Cloudbox flow diagram">
-            <pre class="mermaid">flowchart LR
-  A["Role"] --> B["Workspace"]
-  B --> C["Run"]
-  C --> D["Report"]</pre>
-          </div>
-          <div class="workflow-grid">
-            <article>
-              <span>1</span>
-              <h3>Start with a role</h3>
-              <p>Write a short role description.</p>
-            </article>
-            <article>
-              <span>2</span>
-              <h3>Create the workspace</h3>
-              <p>Cloudbox creates folders, files, drafts, notes, and coworkers.</p>
-            </article>
-            <article>
-              <span>3</span>
-              <h3>Run the scenario</h3>
-              <p>Cloudbox adds activity, messages, changes, and finished work.</p>
-            </article>
-            <article>
-              <span>4</span>
-              <h3>Read the report</h3>
-              <p>Cloudbox summarizes the run, scores it, and lists lessons.</p>
-            </article>
-          </div>
+          <p class="hero-note">A Cloudflare reference app using Workers, D1, R2, Queues, Durable Objects, and Workers AI.</p>
         </div>
       </section>
 
-      <section class="proof-strip" id="proof-strip"></section>
+      <section class="example-section" aria-label="Cloudbox example">
+        <div class="example-heading">
+          <p class="eyebrow">example workspace</p>
+          <h2>Client review project</h2>
+          <p>Cloudbox ships with a seeded workspace for testing whether an agent can use evidence across files.</p>
+        </div>
 
-      <section class="section-block">
-        <div>
-          <p class="eyebrow">use cases</p>
-          <h2>Use Cloudbox for agent test data.</h2>
-        </div>
-        <div class="feature-grid">
-          <article>
-            <h3>Study work over time</h3>
-            <p>Create work histories with files, decisions, and coworkers.</p>
-          </article>
-          <article>
-            <h3>Test agents in workspaces</h3>
-            <p>Give agents files and compare how they use evidence.</p>
-          </article>
-          <article>
-            <h3>Create training data</h3>
-            <p>Practice without exposing private customer data.</p>
-          </article>
-          <article>
-            <h3>Create product demos</h3>
-            <p>Show a product with files, outputs, and evidence.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="docs-band">
-        <div>
-          <p class="eyebrow">get started</p>
-          <h2>Run the demo or deploy your own.</h2>
-          <p>The docs cover setup, deploy, the data model, and the research mapping.</p>
-        </div>
-        <div class="cta-row compact">
-          <a class="primary-cta" href="./docs.html">Read the docs</a>
-          <a class="secondary-cta" href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox">Deploy to Cloudflare</a>
+        <div class="example-card">
+          <div class="example-main">
+            <h3>What the agent gets</h3>
+            <div class="example-list">
+              <div><span>Files</span><p>Source PDFs, spreadsheets, drafts, slides</p></div>
+              <div><span>Task</span><p>Prepare a final client review package</p></div>
+              <div><span>History</span><p>Daily notes, messages, file changes, deadlines</p></div>
+              <div><span>Report</span><p>Scores, key files, missed details, lessons</p></div>
+            </div>
+          </div>
+          <pre><code>input: financial advisor role
+workspace: 6 files, 20 workdays
+check: do the numbers match across workbook, memo, and deck?</code></pre>
         </div>
       </section>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <script>
-      if (window.mermaid) {
-        mermaid.initialize({ startOnLoad: true, theme: "base", securityLevel: "strict" });
-      }
-    </script>
     <script src="./app.js"></script>
   </body>
 </html>
