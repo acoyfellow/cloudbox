@@ -17,33 +17,28 @@
     </header>
 
     <main>
-      <section class="demo-hero simple-hero">
-        <div>
-          <p class="eyebrow">demo workspace</p>
-          <h1>Client review project.</h1>
-          <p class="lede">A seeded workspace for testing whether an agent can use files, keep numbers consistent, and produce a final package.</p>
+      <section class="demo-form-page">
+        <div class="demo-form-copy">
+          <p class="eyebrow">demo</p>
+          <h1>Generate a workspace.</h1>
+          <p class="lede">Describe a role. Cloudbox returns files, a task, work history, downloads, and a scorecard.</p>
         </div>
-      </section>
 
-      <section id="demo-summary" class="focused-demo"></section>
-
-      <section class="generate-section">
-        <div>
-          <p class="eyebrow">try another</p>
-          <h2>Generate a new workspace.</h2>
-        </div>
-        <form id="generate-form">
-          <textarea id="persona" rows="4">A senior financial advisor responsible for portfolio refreshes, investment committee materials, compliance review, and client deliverables.</textarea>
+        <form id="generate-form" class="workspace-form">
+          <label for="persona">Role</label>
+          <textarea id="persona" rows="4">A senior financial advisor preparing a client review package with source PDFs, spreadsheets, compliance notes, and final slides.</textarea>
           <div class="form-row">
             <select id="mode" aria-label="run length">
-              <option value="demo">Demo, 3 days</option>
-              <option value="short">Short, 5 days</option>
-              <option value="full-paper">Full, 20 days</option>
+              <option value="demo">3-day run</option>
+              <option value="short">5-day run</option>
+              <option value="full-paper">20-day run</option>
             </select>
             <button type="submit">Generate workspace</button>
           </div>
         </form>
       </section>
+
+      <section id="demo-summary" class="workspace-output"></section>
     </main>
 
     <script src="./app.js"></script>

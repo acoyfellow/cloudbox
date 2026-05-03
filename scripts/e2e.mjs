@@ -11,7 +11,7 @@ try {
   await page.getByRole("navigation").getByRole("link", { name: "Docs" }).click();
   await page.getByRole("heading", { name: "Start here" }).waitFor();
   await page.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Client review project/i }).waitFor();
+  await page.getByRole("heading", { name: /Generate a workspace/i }).waitFor();
   await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor();
   await page.getByText(/scorecard/i).first().waitFor();
   await page.getByText("Final Recommendation Package").waitFor();

@@ -443,10 +443,33 @@ pre {
   min-height: 0;
 }
 
-.focused-demo,
-.generate-section {
+.demo-form-page {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
+  padding: 56px 0 34px;
+}
+
+.demo-form-copy {
+  align-self: center;
+}
+
+.workspace-form {
+  align-self: center;
+  padding: 18px;
+}
+
+.workspace-form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.workspace-output {
   border-top: 1px solid #d8d0be;
-  padding: 36px 0;
+  padding: 34px 0;
 }
 
 .demo-focus-grid {
@@ -759,6 +782,7 @@ select {
 @media (max-width: 860px) {
   .home-hero,
   .demo-hero,
+  .demo-form-page,
   .example-section,
   .example-card,
   .demo-focus-grid,
