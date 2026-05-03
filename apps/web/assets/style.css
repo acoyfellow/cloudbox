@@ -443,6 +443,98 @@ pre {
   min-height: 0;
 }
 
+.focused-demo,
+.generate-section {
+  border-top: 1px solid #d8d0be;
+  padding: 36px 0;
+}
+
+.demo-focus-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  margin-bottom: 12px;
+}
+
+.demo-focus-card {
+  background: #ffffff;
+  border: 1px solid #d8d0be;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.demo-focus-card.primary h2 {
+  font-size: 34px;
+}
+
+.demo-focus-card p {
+  color: #4b5563;
+  line-height: 1.48;
+  margin: 0;
+}
+
+.demo-focus-card.score strong {
+  color: #0f766e;
+  display: block;
+  font-size: 72px;
+  letter-spacing: 0;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.file-pills,
+.download-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-pills span,
+.download-list a {
+  background: #f8f7f2;
+  border: 1px solid #d8d0be;
+  border-radius: 6px;
+  color: #111827;
+  font-size: 14px;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
+.download-list a {
+  display: grid;
+  gap: 4px;
+}
+
+.download-list span {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.compact-timeline {
+  display: grid;
+  gap: 12px;
+}
+
+.compact-timeline article {
+  border-top: 1px solid #e7e1d4;
+  padding-top: 10px;
+}
+
+.compact-timeline time {
+  color: #0f766e;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.generate-section {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
+}
+
 form {
   padding: 14px;
 }
@@ -669,6 +761,8 @@ select {
   .demo-hero,
   .example-section,
   .example-card,
+  .demo-focus-grid,
+  .generate-section,
   .workflow-section,
   .section-block,
   .docs-band,

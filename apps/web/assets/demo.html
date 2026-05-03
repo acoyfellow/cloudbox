@@ -17,36 +17,33 @@
     </header>
 
     <main>
-      <section class="demo-hero">
+      <section class="demo-hero simple-hero">
         <div>
-          <p class="eyebrow">interactive demo</p>
-          <h1>Can an agent complete a realistic client review?</h1>
-          <p class="lede">This demo shows what Cloudbox creates: a scenario, a workspace, an agent work trail, and a scorecard.</p>
+          <p class="eyebrow">demo workspace</p>
+          <h1>Client review project.</h1>
+          <p class="lede">A seeded workspace for testing whether an agent can use files, keep numbers consistent, and produce a final package.</p>
+        </div>
+      </section>
+
+      <section id="demo-summary" class="focused-demo"></section>
+
+      <section class="generate-section">
+        <div>
+          <p class="eyebrow">try another</p>
+          <h2>Generate a new workspace.</h2>
         </div>
         <form id="generate-form">
-          <textarea id="persona" rows="5">A senior financial advisor responsible for portfolio refreshes, high-net-worth onboarding, investment committee materials, compliance review, and multi-artifact client deliverables.</textarea>
+          <textarea id="persona" rows="4">A senior financial advisor responsible for portfolio refreshes, investment committee materials, compliance review, and client deliverables.</textarea>
           <div class="form-row">
-            <select id="mode" aria-label="simulation mode">
+            <select id="mode" aria-label="run length">
               <option value="demo">Demo, 3 days</option>
               <option value="short">Short, 5 days</option>
-              <option value="full-paper">Full paper mode, 20 days</option>
+              <option value="full-paper">Full, 20 days</option>
             </select>
-            <button type="submit">Generate another Cloudbox</button>
+            <button type="submit">Generate workspace</button>
           </div>
         </form>
       </section>
-
-      <section class="demo-guide" id="demo-guide"></section>
-
-      <nav class="tabs" aria-label="Cloudbox views">
-        <button class="active" data-tab="scenario">Scenario</button>
-        <button data-tab="workspace">Workspace</button>
-        <button data-tab="work">Agent Work</button>
-        <button data-tab="results">Results</button>
-        <button data-tab="downloads">Downloads</button>
-      </nav>
-
-      <section id="panel" class="panel"></section>
     </main>
 
     <script src="./app.js"></script>

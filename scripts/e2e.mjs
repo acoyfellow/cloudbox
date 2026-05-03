@@ -11,20 +11,14 @@ try {
   await page.getByRole("navigation").getByRole("link", { name: "Docs" }).click();
   await page.getByRole("heading", { name: "Start here" }).waitFor();
   await page.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Can an agent complete a realistic client review/i }).waitFor();
-  await page.getByText(/what you are testing/i).waitFor();
-  await page.getByRole("button", { name: "Downloads" }).click();
-  await page.getByRole("heading", { name: "Final Recommendation Package" }).waitFor();
-  await page.getByRole("button", { name: "Scenario" }).click();
-  await page.getByText(/David Hartley/i).waitFor();
-  await page.getByRole("button", { name: "Agent Work" }).click();
-  await page.getByRole("heading", { name: /Advanced 2026 model portfolio refresh/i }).first().waitFor();
-  await page.getByRole("button", { name: "Results" }).click();
-  await page.getByRole("heading", { name: /What the scorecard found/i }).waitFor();
+  await page.getByRole("heading", { name: /Client review project/i }).waitFor();
+  await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor();
+  await page.getByText(/scorecard/i).first().waitFor();
+  await page.getByText("Final Recommendation Package").waitFor();
   const generated = page.waitForResponse((response) => response.url().includes("/api/generate") && response.status() === 201);
-  await page.getByRole("button", { name: /Generate another Cloudbox/i }).click();
+  await page.getByRole("button", { name: /Generate workspace/i }).click();
   await generated;
-  await page.getByRole("heading", { name: "1. Scenario" }).waitFor();
+  await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor();
   console.log(`E2E passed against ${baseUrl}`);
 } finally {
   await browser.close();

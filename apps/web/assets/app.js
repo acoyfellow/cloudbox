@@ -144,25 +144,15 @@ const fallbackState = {
 
 function initDemo() {
   let state = null;
-  let activeTab = "scenario";
 
-  const guide = document.querySelector("#demo-guide");
-  const panel = document.querySelector("#panel");
+  const summary = document.querySelector("#demo-summary");
   const form = document.querySelector("#generate-form");
   const persona = document.querySelector("#persona");
   const mode = document.querySelector("#mode");
 
-  document.querySelectorAll(".tabs button").forEach((button) => {
-    button.addEventListener("click", () => {
-      activeTab = button.dataset.tab;
-      document.querySelectorAll(".tabs button").forEach((item) => item.classList.toggle("active", item === button));
-      render();
-    });
-  });
-
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    panel.innerHTML = `<div class="loading">Generating Cloudbox...</div>`;
+    summary.innerHTML = `<div class="loading">Generating workspace...</div>`;
     state = await fetchJson("/api/generate", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -179,18 +169,56 @@ function initDemo() {
   function render() {
     if (!state) return;
     const { computer, retrospective } = state;
-    guide.innerHTML = [
-      stat("1. Scenario", "A realistic workplace task with deadlines and review requirements"),
-      stat("2. Workspace", `${computer.filesystem.files.length} files across ${computer.filesystem.directories.length} folders`),
-      stat("3. Agent work", `${computer.simulation.activities.length} recorded activities over ${computer.simulation.period.workingDays} workdays`),
-      stat("4. Results", `${retrospective.percentage}% scorecard plus reusable lessons`),
-    ].join("");
+    renderFocusedDemo(computer, retrospective);
+  }
 
-    if (activeTab === "scenario") renderScenario(computer);
-    if (activeTab === "workspace") renderWorkspace(computer);
-    if (activeTab === "work") renderWork(computer);
-    if (activeTab === "results") renderResults(retrospective);
-    if (activeTab === "downloads") renderDownloads(computer);
+  function renderFocusedDemo(computer, retrospective) {
+    const files = computer.filesystem.files.slice(0, 6);
+    const activities = computer.simulation.activities.slice(0, 3);
+    const downloads = computer.artifacts.slice(0, 3);
+    summary.innerHTML = `
+      <div class="demo-focus-grid">
+        <section class="demo-focus-card primary">
+          <p class="eyebrow">assignment</p>
+          <h2>${escapeHtml(computer.simulation.deliverables[0]?.title ?? "Client review package")}</h2>
+          <p>${escapeHtml(computer.simulation.deliverables[0]?.description ?? "Use the workspace files to prepare the final client package.")}</p>
+        </section>
+
+        <section class="demo-focus-card score">
+          <p class="eyebrow">scorecard</p>
+          <strong>${retrospective.percentage}%</strong>
+          <p>${escapeHtml(retrospective.lessons[0] ?? "Keep shared facts tied to one source file.")}</p>
+        </section>
+      </div>
+
+      <div class="demo-focus-card">
+        <h2>Workspace</h2>
+        <div class="file-pills">${files.map((file) => `<span>${escapeHtml(file.kind.toUpperCase())} ${escapeHtml(file.path.split("/").pop() ?? file.path)}</span>`).join("")}</div>
+      </div>
+
+      <div class="demo-focus-grid">
+        <section class="demo-focus-card">
+          <h2>Work history</h2>
+          <div class="compact-timeline">${activities
+            .map((activity) => `<article><time>${activity.date}</time><p>${escapeHtml(activity.summary)}</p></article>`)
+            .join("")}</div>
+        </section>
+
+        <section class="demo-focus-card">
+          <h2>Downloads</h2>
+          <div class="download-list">${downloads
+            .map(
+              (artifact) => `
+                <a href="${window.location.protocol === "file:" ? "#" : `/api/artifacts/${artifact.fileId}`}">
+                  <span>${escapeHtml(artifact.kind.toUpperCase())}</span>
+                  ${escapeHtml(artifact.title)}
+                </a>
+              `,
+            )
+            .join("")}</div>
+        </section>
+      </div>
+    `;
   }
 
   function renderScenario(computer) {
