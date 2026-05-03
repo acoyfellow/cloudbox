@@ -152,7 +152,7 @@ function initDemo() {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    summary.innerHTML = `<div class="loading">Generating workspace...</div>`;
+    summary.innerHTML = `<div class="loading">Making workspace...</div>`;
     state = await fetchJson("/api/generate", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -179,20 +179,20 @@ function initDemo() {
     summary.innerHTML = `
       <div class="demo-focus-grid">
         <section class="demo-focus-card primary">
-          <p class="eyebrow">assignment</p>
+          <p class="eyebrow">task</p>
           <h2>${escapeHtml(computer.simulation.deliverables[0]?.title ?? "Client review package")}</h2>
           <p>${escapeHtml(computer.simulation.deliverables[0]?.description ?? "Use the workspace files to prepare the final client package.")}</p>
         </section>
 
         <section class="demo-focus-card score">
-          <p class="eyebrow">scorecard</p>
+          <p class="eyebrow">score</p>
           <strong>${retrospective.percentage}%</strong>
           <p>${escapeHtml(retrospective.lessons[0] ?? "Keep shared facts tied to one source file.")}</p>
         </section>
       </div>
 
       <div class="demo-focus-card">
-        <h2>Workspace</h2>
+        <h2>Files</h2>
         <div class="file-pills">${files.map((file) => `<span>${escapeHtml(file.kind.toUpperCase())} ${escapeHtml(file.path.split("/").pop() ?? file.path)}</span>`).join("")}</div>
       </div>
 

@@ -6,19 +6,19 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
 try {
   await page.goto(baseUrl, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Create sample workspaces for agents/i }).waitFor();
+  await page.getByRole("heading", { name: /Fake workspaces for testing AI agents/i }).waitFor();
   await page.getByText(/Client review project/i).waitFor();
   await page.getByRole("navigation").getByRole("link", { name: "Docs" }).click();
   await page.getByRole("heading", { name: "Start here" }).waitFor();
   await page.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Generate a workspace/i }).waitFor();
-  await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor();
-  await page.getByText(/scorecard/i).first().waitFor();
+  await page.getByRole("heading", { name: /Make a fake workspace/i }).waitFor();
+  await page.getByRole("heading", { name: "Files", exact: true }).waitFor();
+  await page.getByText(/score/i).first().waitFor();
   await page.getByText("Final Recommendation Package").waitFor();
   const generated = page.waitForResponse((response) => response.url().includes("/api/generate") && response.status() === 201);
-  await page.getByRole("button", { name: /Generate workspace/i }).click();
+  await page.getByRole("button", { name: /Make workspace/i }).click();
   await generated;
-  await page.getByRole("heading", { name: "Workspace", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Files", exact: true }).waitFor();
   console.log(`E2E passed against ${baseUrl}`);
 } finally {
   await browser.close();
