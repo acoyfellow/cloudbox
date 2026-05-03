@@ -3,8 +3,8 @@
 Cloudbox spins up synthetic work environments for long-horizon agent evals on Cloudflare.
 
 Primary pages:
-- `/`: product homepage with dogfooded run snippet.
-- `/docs`: seven-minute docs path.
+- `/`: product homepage with demo run snippet.
+- `/docs`: setup and usage docs.
 - `/demo`: interactive generated Cloudbox.
 - `/docs/research`: mapping from the Synthetic Computers at Scale paper to this implementation.
 

@@ -170,7 +170,7 @@ bunx wrangler dev --local --port 8799</code></pre>
       body: `
         <ol>
           <li>Click <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox">Deploy to Cloudflare</a>.</li>
-          <li>Open your Worker URL and inspect the dogfooded run.</li>
+          <li>Open your Worker URL and try the included demo run.</li>
           <li>Go to <a href="/demo">/demo</a> and generate another Cloudbox from your own persona.</li>
           <li>Use <code>/api/export</code> to download the manifest.</li>
         </ol>
