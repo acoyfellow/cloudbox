@@ -4,47 +4,87 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cloudbox</title>
+    <meta name="description" content="Cloudbox spins up synthetic work environments for long-horizon agent evals on Cloudflare." />
     <link rel="stylesheet" href="/style.css" />
   </head>
-  <body>
-    <header class="topbar">
-      <div>
-        <strong>Cloudbox</strong>
-        <span>synthetic cloud computers for long-horizon agents</span>
-      </div>
-      <a class="link-button" href="/api/export">Export</a>
+  <body data-page="home">
+    <header class="site-header">
+      <a class="brand" href="/">Cloudbox</a>
+      <nav>
+        <a href="/docs">Docs</a>
+        <a href="/demo">Demo</a>
+        <a href="https://github.com/acoyfellow/cloudbox">GitHub</a>
+      </nav>
     </header>
 
     <main>
-      <section class="hero">
-        <div>
-          <p class="eyebrow">persona → profile → files → artifacts → simulation → retrospective</p>
-          <h1>Generate a realistic work computer without touching private user data.</h1>
-        </div>
-        <form id="generate-form">
-          <textarea id="persona" rows="5">A senior financial advisor responsible for portfolio refreshes, high-net-worth onboarding, investment committee materials, compliance review, and multi-artifact client deliverables.</textarea>
-          <div class="form-row">
-            <select id="mode" aria-label="simulation mode">
-              <option value="demo">Demo, 3 days</option>
-              <option value="short">Short, 5 days</option>
-              <option value="full-paper">Full paper mode, 20 days</option>
-            </select>
-            <button type="submit">Generate another synthetic computer</button>
+      <section class="home-hero">
+        <div class="hero-copy">
+          <p class="eyebrow">agent eval environments on Cloudflare</p>
+          <h1>Give agents fake jobs before they touch real ones.</h1>
+          <p class="lede">
+            Cloudbox generates realistic work environments with files, collaborators,
+            assignments, evidence, and scorecards. Deploy your own in minutes.
+          </p>
+          <div class="cta-row">
+            <a class="primary-cta" href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox">Deploy to Cloudflare</a>
+            <a class="secondary-cta" href="/docs">Read the docs</a>
           </div>
-        </form>
+        </div>
+
+        <section class="run-card" aria-label="Dogfooded Cloudbox run">
+          <div class="run-card-header">
+            <span>dogfooded run</span>
+            <strong>Senior financial advisor</strong>
+          </div>
+          <dl>
+            <div><dt>Job</dt><dd>Refresh 2026 model portfolios</dd></div>
+            <div><dt>Files</dt><dd>6 seeded artifacts, 20-day work log</dd></div>
+            <div><dt>People</dt><dd>manager, peer, client, compliance, data provider</dd></div>
+            <div><dt>Signal</dt><dd>cross-document consistency is the failure to catch</dd></div>
+          </dl>
+          <pre><code>lesson: every shared figure needs one authoritative source file
+score: 100% demo rubric
+export: /api/export</code></pre>
+          <a class="inline-link" href="/demo">Open the generated Cloudbox →</a>
+        </section>
       </section>
 
-      <section class="summary-grid" id="summary"></section>
+      <section class="proof-strip" id="proof-strip"></section>
 
-      <nav class="tabs" aria-label="Cloudbox views">
-        <button class="active" data-tab="filesystem">Filesystem</button>
-        <button data-tab="artifacts">Artifacts</button>
-        <button data-tab="collaborators">Collaborators</button>
-        <button data-tab="simulation">Simulation Log</button>
-        <button data-tab="retrospective">Retrospective</button>
-      </nav>
+      <section class="section-block">
+        <div>
+          <p class="eyebrow">what it creates</p>
+          <h2>A complete practice world for agent work.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <h3>Work computer</h3>
+            <p>Role-specific folders, source files, drafts, versions, and generated productivity artifacts.</p>
+          </article>
+          <article>
+            <h3>Work brief</h3>
+            <p>A realistic assignment with deliverables, constraints, collaborator needs, and deadlines.</p>
+          </article>
+          <article>
+            <h3>Evidence trail</h3>
+            <p>Daily activity, messages, created files, revised files, and artifact downloads.</p>
+          </article>
+          <article>
+            <h3>Scorecard</h3>
+            <p>Rubric results, failure modes, strengths, and lessons that can improve the next agent run.</p>
+          </article>
+        </div>
+      </section>
 
-      <section id="panel" class="panel"></section>
+      <section class="docs-band">
+        <div>
+          <p class="eyebrow">seven-minute setup</p>
+          <h2>Docs are the main path.</h2>
+          <p>Start with the deployed demo, then clone, run locally, deploy to your own Cloudflare account, and generate your first environment.</p>
+        </div>
+        <a class="primary-cta" href="/docs">Start with docs</a>
+      </section>
     </main>
 
     <script src="/app.js" type="module"></script>

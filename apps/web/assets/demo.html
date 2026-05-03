@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloudbox Demo</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body data-page="demo">
+    <header class="site-header">
+      <a class="brand" href="/">Cloudbox</a>
+      <nav>
+        <a href="/docs">Docs</a>
+        <a href="/demo">Demo</a>
+        <a href="https://github.com/acoyfellow/cloudbox">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="demo-hero">
+        <div>
+          <p class="eyebrow">live generated environment</p>
+          <h1>Inspect a complete Cloudbox.</h1>
+          <p class="lede">The seeded run is already complete. Generate another, download artifacts, or export the manifest.</p>
+        </div>
+        <form id="generate-form">
+          <textarea id="persona" rows="5">A senior financial advisor responsible for portfolio refreshes, high-net-worth onboarding, investment committee materials, compliance review, and multi-artifact client deliverables.</textarea>
+          <div class="form-row">
+            <select id="mode" aria-label="simulation mode">
+              <option value="demo">Demo, 3 days</option>
+              <option value="short">Short, 5 days</option>
+              <option value="full-paper">Full paper mode, 20 days</option>
+            </select>
+            <button type="submit">Generate another Cloudbox</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="summary-grid" id="summary"></section>
+
+      <nav class="tabs" aria-label="Cloudbox views">
+        <button class="active" data-tab="world">World</button>
+        <button data-tab="brief">Work Brief</button>
+        <button data-tab="evidence">Evidence</button>
+        <button data-tab="scorecard">Scorecard</button>
+        <button data-tab="downloads">Downloads</button>
+      </nav>
+
+      <section id="panel" class="panel"></section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
