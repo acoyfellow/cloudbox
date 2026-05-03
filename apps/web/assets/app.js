@@ -9,16 +9,15 @@ async function initHome() {
   const state = await fetchJson("/api/demo").catch(() => fallbackState);
   const { computer, retrospective } = state;
   proof.innerHTML = [
-    stat("Cloudbox", computer.name),
-    stat("Artifacts", `${computer.artifacts.length} downloadable files`),
-    stat("Work log", `${computer.simulation.period.workingDays} simulated workdays`),
-    stat("Scorecard", `${retrospective.percentage}% with ${retrospective.lessons.length} lessons`),
+    stat("Generate", "A role-specific workplace with files, stakeholders, and deadlines"),
+    stat("Assign", "Give an agent a realistic work package instead of a one-shot prompt"),
+    stat("Inspect", `${computer.artifacts.length} artifacts and ${computer.simulation.period.workingDays} days of work history`),
+    stat("Compare", `${retrospective.percentage}% scorecard with ${retrospective.lessons.length} reusable lessons`),
   ].join("");
 }
 
 const fallbackState = {
   computer: {
-    name: "Margaret's Cloudbox",
     artifacts: Array.from({ length: 6 }),
     simulation: { period: { workingDays: 20 } },
   },
