@@ -6,7 +6,7 @@ if (pageType === "docs") initDocs();
 
 async function initHome() {
   const proof = document.querySelector("#proof-strip");
-  const state = await fetchJson("/api/demo");
+  const state = await fetchJson("/api/demo").catch(() => fallbackState);
   const { computer, retrospective } = state;
   proof.innerHTML = [
     stat("Cloudbox", computer.name),
@@ -15,6 +15,23 @@ async function initHome() {
     stat("Scorecard", `${retrospective.percentage}% with ${retrospective.lessons.length} lessons`),
   ].join("");
 }
+
+const fallbackState = {
+  computer: {
+    name: "Margaret's Cloudbox",
+    artifacts: Array.from({ length: 6 }),
+    simulation: { period: { workingDays: 20 } },
+  },
+  retrospective: {
+    percentage: 100,
+    lessons: [
+      "Every shared figure needs one authoritative source file.",
+      "Daily context restoration matters for long-running work.",
+      "Collaborator feedback needs to become structured evidence.",
+      "Generated environments should open with a complete demo.",
+    ],
+  },
+};
 
 function initDemo() {
   let state = null;
