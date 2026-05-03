@@ -1,0 +1,5 @@
+{
+  "name": "@cloudbox/web",
+  "private": true,
+  "type": "module"
+}

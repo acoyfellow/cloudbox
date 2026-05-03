@@ -1,0 +1,44 @@
+---
+const steps = [
+  ["1", "Start with a persona", "Cloudbox expands the sketch into a user profile, work habits, projects, and collaborators."],
+  ["2", "Build the computer", "It plans folders, files, timestamps, origins, artifact types, and dependency edges."],
+  ["3", "Run the work", "A simulated user carries work across days, messages collaborators, revises files, and ships deliverables."],
+  ["4", "Extract lessons", "A retrospective scores the run and turns failures into reusable agent lessons."],
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloudbox Docs</title>
+    <meta name="description" content="Cloudbox generates synthetic cloud computers for long-horizon agent practice on Cloudflare." />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <strong>Cloudbox</strong>
+      <nav>
+        <a href="/quickstart">Quickstart</a>
+        <a href="/concepts">Concepts</a>
+        <a href="/api">API</a>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <p>synthetic cloud computers for long-horizon agents</p>
+        <h1>Practice real work without private user data.</h1>
+        <a class="button" href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox">Deploy to Cloudflare</a>
+      </section>
+      <section class="grid">
+        {steps.map(([n, title, body]) => (
+          <article>
+            <span>{n}</span>
+            <h2>{title}</h2>
+            <p>{body}</p>
+          </article>
+        ))}
+      </section>
+    </main>
+  </body>
+</html>

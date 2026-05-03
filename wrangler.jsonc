@@ -1,0 +1,47 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cloudbox",
+  "main": "apps/web/src/worker.ts",
+  "compatibility_date": "2026-04-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "apps/web/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "CLOUDBOX_MODEL": "@cf/meta/llama-3.1-8b-instruct"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloudbox",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARTIFACTS",
+      "bucket_name": "cloudbox-artifacts"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "RUNS",
+        "queue": "cloudbox-runs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "cloudbox-runs"
+      }
+    ]
+  },
+  "ai": {
+    "binding": "AI"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+docs/.astro/
+docs/dist/
+.wrangler/
+.alchemy/
+.dev.vars
+*.tsbuildinfo

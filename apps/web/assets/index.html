@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloudbox</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <strong>Cloudbox</strong>
+        <span>synthetic cloud computers for long-horizon agents</span>
+      </div>
+      <a class="link-button" href="/api/export">Export</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">persona → profile → files → artifacts → simulation → retrospective</p>
+          <h1>Generate a realistic work computer without touching private user data.</h1>
+        </div>
+        <form id="generate-form">
+          <textarea id="persona" rows="5">A senior financial advisor responsible for portfolio refreshes, high-net-worth onboarding, investment committee materials, compliance review, and multi-artifact client deliverables.</textarea>
+          <div class="form-row">
+            <select id="mode" aria-label="simulation mode">
+              <option value="demo">Demo, 3 days</option>
+              <option value="short">Short, 5 days</option>
+              <option value="full-paper">Full paper mode, 20 days</option>
+            </select>
+            <button type="submit">Generate another synthetic computer</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="summary-grid" id="summary"></section>
+
+      <nav class="tabs" aria-label="Cloudbox views">
+        <button class="active" data-tab="filesystem">Filesystem</button>
+        <button data-tab="artifacts">Artifacts</button>
+        <button data-tab="collaborators">Collaborators</button>
+        <button data-tab="simulation">Simulation Log</button>
+        <button data-tab="retrospective">Retrospective</button>
+      </nav>
+
+      <section id="panel" class="panel"></section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

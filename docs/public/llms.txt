@@ -1,0 +1,15 @@
+# Cloudbox
+
+Cloudbox generates synthetic cloud computers for long-horizon agent practice on Cloudflare.
+
+Important paths:
+- `/quickstart`: how to run and deploy.
+- `/concepts`: persona, filesystem planning, artifacts, collaborators, simulation, retrospective.
+- `/api`: public API endpoints.
+
+Core API:
+- `GET /api/demo`
+- `POST /api/generate`
+- `POST /api/runs`
+- `GET /api/artifacts/:id`
+- `GET /api/export`
