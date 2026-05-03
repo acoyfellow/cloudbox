@@ -9,9 +9,9 @@ async function initHome() {
   const state = await fetchJson("/api/demo").catch(() => fallbackState);
   const { computer, retrospective } = state;
   proof.innerHTML = [
-    stat("Worker", "Profile from a short description"),
+    stat("Role", "Profile from a short description"),
     stat("Files", "Folders, sources, drafts, coworkers, deadlines"),
-    stat("Work history", `${computer.artifacts.length} files, ${computer.simulation.period.workingDays} days`),
+    stat("Run", `${computer.artifacts.length} files, ${computer.simulation.period.workingDays} days`),
     stat("Report", `${retrospective.percentage}% scorecard with ${retrospective.lessons.length} lessons`),
   ].join("");
 }
