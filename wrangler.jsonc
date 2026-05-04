@@ -12,7 +12,7 @@
     }
   ],
   "assets": {
-    "directory": "apps/web/assets",
+    "directory": "apps/web/dist/client",
     "binding": "ASSETS"
   },
   "observability": {

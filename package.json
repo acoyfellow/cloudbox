@@ -5,13 +5,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun alchemy dev",
-    "deploy": "bun alchemy deploy",
+    "build": "bun --filter @cloudbox/web build",
+    "dev": "bun run build && bun alchemy dev",
+    "deploy": "bun run build && wrangler deploy",
+    "alchemy:deploy": "bun run build && bun alchemy deploy",
     "destroy": "bun alchemy destroy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "node scripts/e2e.mjs",
-    "check": "npm run typecheck && npm run test"
+    "check": "bun run build && npm run typecheck && npm run test"
   },
   "workspaces": [
     "apps/*",

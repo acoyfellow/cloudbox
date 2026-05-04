@@ -22,7 +22,7 @@ const Stack = Alchemy.Stack(
     const worker = yield* Cloudflare.Worker("Cloudbox", {
       name: "cloudbox",
       main: "./apps/web/src/worker.ts",
-      assets: "./apps/web/assets",
+      assets: "./apps/web/dist/client",
       compatibility: {
         date: "2026-04-30",
         flags: ["nodejs_compat"],

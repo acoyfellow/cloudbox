@@ -6,6 +6,10 @@ import {
   type PersonaInput,
   type SyntheticComputer,
 } from "../../../packages/synthetic-computer/src/index.ts";
+// Built by TanStack Start before deploy/check. The Worker owns API routes and
+// delegates page rendering to the generated app server.
+// @ts-expect-error The generated server exists after `bun run build`.
+import appServer from "../dist/server/server.js";
 
 export type Env = {
   DB?: D1Database;
@@ -75,15 +79,11 @@ export default {
           },
         });
       }
-      if (env.ASSETS && url.pathname === "/demo") {
-        return env.ASSETS.fetch(new Request(new URL("/demo.html", url.origin), request));
+      if (env.ASSETS) {
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status !== 404 || hasFileExtension(url.pathname)) return assetResponse;
       }
-      if (env.ASSETS && (url.pathname === "/docs" || url.pathname.startsWith("/docs/"))) {
-        const page = docsPage(url.pathname);
-        return new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-      if (env.ASSETS) return env.ASSETS.fetch(request);
-      return new Response("Not Found", { status: 404 });
+      return appServer.fetch(request, env);
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
@@ -143,91 +143,6 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-function docsPage(pathname: string): string {
-  const docs: Record<string, { title: string; body: string }> = {
-    "/docs": {
-      title: "Start here",
-      body: `
-        <p>Cloudbox creates synthetic work environments for long-horizon agent evals. The fastest path is: inspect the live demo, deploy your own Worker, then generate one environment from a role description.</p>
-        <pre><code>bun install
-bunx wrangler dev --local --port 8799</code></pre>
-        <p>The deployed app includes the homepage, docs, demo, API, D1, R2, Queue, and Workers AI binding in one Cloudflare Worker.</p>
-      `,
-    },
-    "/docs/quickstart": {
-      title: "Quickstart",
-      body: `
-        <ol>
-          <li>Click <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox">Deploy to Cloudflare</a>.</li>
-          <li>Open your Worker URL and try the included demo run.</li>
-          <li>Go to <a href="/demo">/demo</a> and generate another Cloudbox from your own persona.</li>
-          <li>Use <code>/api/export</code> to download the manifest.</li>
-        </ol>
-      `,
-    },
-    "/docs/concepts": {
-      title: "Concepts",
-      body: `
-        <h2>Cloudbox</h2><p>A synthetic work environment: files, assignments, collaborators, activity history, artifacts, and scorecard.</p>
-        <h2>Work brief</h2><p>The job an agent must complete inside the environment.</p>
-        <h2>Evidence</h2><p>The files read, files created, messages exchanged, and daily work log.</p>
-        <h2>Scorecard</h2><p>Rubric results plus strengths, failure modes, and extracted lessons.</p>
-      `,
-    },
-    "/docs/api": {
-      title: "API",
-      body: `
-        <pre><code>GET  /api/demo
-POST /api/generate
-POST /api/runs
-GET  /api/artifacts/:id
-GET  /api/export</code></pre>
-        <p><code>POST /api/generate</code> accepts <code>{ text, mode }</code>. Mode is <code>demo</code>, <code>short</code>, or <code>full-paper</code>.</p>
-      `,
-    },
-    "/docs/research": {
-      title: "Research mapping",
-      body: `
-        <p>Cloudbox implements the main ideas from <em>Synthetic Computers at Scale for Long-Horizon Productivity Simulation</em> as a deployable Cloudflare product.</p>
-        <ul>
-          <li><strong>Persona expansion:</strong> <code>expandPersona</code> creates user profile, role, projects, tools, and work habits.</li>
-          <li><strong>Filesystem planning:</strong> <code>planFilesystem</code> creates paths, artifacts, timestamps, and dependencies.</li>
-          <li><strong>Artifact generation:</strong> <code>generateArtifact</code> creates downloadable productivity artifacts.</li>
-          <li><strong>Collaboration setup:</strong> <code>createCollaborators</code> creates simulated collaborators with private reference files.</li>
-          <li><strong>Long-horizon simulation:</strong> <code>runSimulation</code> records daily work, messages, and deliverables.</li>
-          <li><strong>Trajectory analysis:</strong> <code>evaluateComputer</code> emits scorecard, failures, strengths, and lessons.</li>
-        </ul>
-      `,
-    },
-  };
-  const doc = docs[pathname] ?? docs["/docs"];
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cloudbox Docs · ${doc.title}</title>
-    <link rel="stylesheet" href="/style.css" />
-  </head>
-  <body data-page="docs">
-    <header class="site-header">
-      <a class="brand" href="/">Cloudbox</a>
-      <nav>
-        <a href="/docs">Docs</a>
-        <a href="/demo">Demo</a>
-        <a href="https://github.com/acoyfellow/cloudbox">GitHub</a>
-      </nav>
-    </header>
-    <main class="docs-layout">
-      <aside class="docs-nav">
-        <a href="/docs">Start</a>
-        <a href="/docs/quickstart">Quickstart</a>
-        <a href="/docs/concepts">Concepts</a>
-        <a href="/docs/api">API</a>
-        <a href="/docs/research">Research</a>
-      </aside>
-      <article class="doc-page" id="doc-page"><h1>${doc.title}</h1>${doc.body}</article>
-    </main>
-  </body>
-</html>`;
+function hasFileExtension(pathname: string): boolean {
+  return /\.[a-z0-9]+$/i.test(pathname);
 }
