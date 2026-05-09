@@ -29,7 +29,7 @@ const bucketName = isProd ? "cloudbox-artifacts" : `${app.stage}-cloudbox-artifa
 const DB = {
   type: "d1" as const,
   name: dbName,
-  id: process.env.CLOUDBOX_D1_DATABASE_ID ?? "",
+  id: process.env.CLOUDBOX_D1_DATABASE_ID ?? "00000000-0000-0000-0000-000000000000",
 };
 
 const ARTIFACTS = await R2Bucket("cloudbox-artifacts", {
