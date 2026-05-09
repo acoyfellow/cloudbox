@@ -1,0 +1,133 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "API reference"
+eyebrow: "Reference"
+description: "The Cloudbox Worker exposes a small HTTP protocol. Every per-computer endpoint lives under /c/:id and writes a receipt to the computer's Durable Object."
+---
+
+## At a glance
+
+```
+GET    /api/health
+POST   /computers
+POST   /brief
+GET    /c/:id/list
+GET    /c/:id/read?path=...
+POST   /c/:id/write
+POST   /c/:id/ask
+POST   /c/:id/submit
+GET    /c/:id/grade
+GET    /c/:id/receipts
+GET    /c/:id/spec
+```
+
+## Health
+
+```sh
+curl http://localhost:8799/api/health
+# → { "ok": true, "name": "cloudbox" }
+```
+
+## Materialize a computer
+
+```sh
+curl -X POST http://localhost:8799/computers \
+  -H 'content-type: application/json' \
+  -d @spec.json
+# → { "id": "cb_abc123…", "baseUrl": "/c/cb_abc123…" }
+```
+
+The `id` is a deterministic content hash of the spec. The same spec returns the same id every time — re-materializing is idempotent.
+
+## Brief → spec
+
+```sh
+curl -X POST http://localhost:8799/brief \
+  -H 'content-type: application/json' \
+  -d '{"text":"A staff engineer triaging an open PR with failing CI."}'
+# → { "spec": { profile, filesystem, collaborators, objectives, rubric } }
+```
+
+The draft spec is a starting point — edit it, then POST it to `/computers` to materialize. v0 is a deterministic stub; the Workers AI-backed structured generator lands in a later phase.
+
+## List files
+
+```sh
+curl http://localhost:8799/c/$ID/list
+# → { "files": [{ "path": "...", "kind": "...", "state": "..." }, ...] }
+```
+
+## Read a file
+
+```sh
+curl "http://localhost:8799/c/$ID/read?path=docs/auth-redesign.md"
+# → { "path": "...", "kind": "...", "content": "..." }
+```
+
+Records a `read` receipt.
+
+## Write a file
+
+```sh
+curl -X POST http://localhost:8799/c/$ID/write \
+  -H 'content-type: application/json' \
+  -d '{"path":"notes/triage.md","content":"# Notes\n…"}'
+# → { "path": "...", "written": <bytes> }
+```
+
+Records a `write` receipt.
+
+## Ask a collaborator
+
+```sh
+curl -X POST http://localhost:8799/c/$ID/ask \
+  -H 'content-type: application/json' \
+  -d '{"who":"arch","message":"Should this use a queue?"}'
+# → { "from": "arch", "role": "reviewer", "style": "architectural", "reply": "..." }
+```
+
+Records an `ask` receipt. The `who` value is the collaborator's `id` from the spec.
+
+## Submit a decision
+
+```sh
+curl -X POST http://localhost:8799/c/$ID/submit \
+  -H 'content-type: application/json' \
+  -d '{"objective":"triage","decision":"request-changes","notes":"..."}'
+# → { "objective": "...", "accepted": true }
+```
+
+Records a `submit` receipt. `objective` is the objective's `id` from the spec.
+
+## Grade
+
+```sh
+curl http://localhost:8799/c/$ID/grade
+# → {
+#     "score": 4,
+#     "max": 5,
+#     "totalWeight": 6,
+#     "passed": ["design-first", "decided"],
+#     "failed": ["right-reviewer"],
+#     "ungraded": ["explain-ci"],
+#     "detail": [...]
+#   }
+```
+
+Pure replay of the receipt log against the rubric. Idempotent — call it as many times as you want; the score is a function of the receipts at that moment.
+
+## Receipts
+
+```sh
+curl http://localhost:8799/c/$ID/receipts
+# → { "receipts": [{ "ts", "kind", "payload" }, ...] }
+```
+
+The full append-only log. Useful for debugging an agent's behavior.
+
+## Spec
+
+```sh
+curl http://localhost:8799/c/$ID/spec
+# → the original ComputerSpec
+```

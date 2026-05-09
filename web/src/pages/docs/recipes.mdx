@@ -1,0 +1,146 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Recipes"
+eyebrow: "Patterns"
+description: "Common things you'll do with Cloudbox: pair it with Think, drive it from any agent, sweep variants, write custom rubrics, ship fixtures to CI."
+---
+
+## Pair with Think
+
+The reference integration. Think runs the agent loop; Cloudbox provides the world.
+
+```ts
+import { Think } from "@cloudflare/think";
+import { createCloudboxTools } from "cloudbox/think";
+import { createWorkersAI } from "workers-ai-provider";
+
+export class TriageAgent extends Think<Env> {
+  getModel() {
+    return createWorkersAI({ binding: this.env.AI })("@cf/moonshotai/kimi-k2.6");
+  }
+
+  getTools() {
+    return createCloudboxTools({
+      computerId: this.env.CLOUDBOX_COMPUTER_ID,
+      fetcher: fetch,
+    });
+  }
+}
+```
+
+The model gets `env_list`, `env_read`, `env_write`, `env_ask`, `env_submit` alongside Think's native workspace tools. Different namespaces, no collision.
+
+## Drive Cloudbox from any agent
+
+Cloudbox doesn't care what runtime drives it. Here's a 30-line OpenAI SDK client that completes one PR triage:
+
+```ts
+import OpenAI from "openai";
+
+const openai = new OpenAI();
+const id = (await fetch("/computers", { method: "POST", body: JSON.stringify(spec) })).id;
+
+const messages = [
+  { role: "system", content: "You triage PRs. Use the env_* tools." },
+  { role: "user", content: "Triage the open PR." },
+];
+
+while (true) {
+  const r = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages,
+    tools: cloudboxToolsAsOpenAI(id),
+  });
+  const m = r.choices[0].message;
+  messages.push(m);
+  if (!m.tool_calls) break;
+  for (const call of m.tool_calls) {
+    const result = await callCloudbox(id, call.function.name, JSON.parse(call.function.arguments));
+    messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+  }
+}
+
+const grade = await fetch(`/c/${id}/grade`).then(r => r.json());
+console.log(grade); // → { score, max, passed, failed, ... }
+```
+
+## Sweep variants
+
+The spec is just data. Generate hundreds of computers by parameterizing it.
+
+```ts
+import { defineComputer } from "cloudbox";
+
+const baseSpec = defineComputer({ /* … */ });
+
+for (const reviewerStyle of ["nitpicky", "architectural", "absent", "hostile"]) {
+  const variant = {
+    ...baseSpec,
+    collaborators: baseSpec.collaborators.map((c) =>
+      c.id === "arch" ? { ...c, style: reviewerStyle } : c
+    ),
+  };
+
+  const { id } = await materialize(variant, env);
+  const trajectory = await runAgent(id);
+  const grade = await fetch(`/c/${id}/grade`).then(r => r.json());
+
+  recordResult(reviewerStyle, grade);
+}
+```
+
+Same agent, four worlds. Comparable scores.
+
+## Write a custom rubric matcher
+
+Rubric matchers are pure functions over the receipt log. v0 ships five built-in matchers (`read`, `readBefore`, `submitted`, `asked`, `askedOnly`). To add your own, fork `src/grade.ts` — the matcher dispatch is a small switch.
+
+```ts
+case "wroteFile":
+  return receipts.some(
+    (r) => r.kind === "write" && r.payload.path === event.path,
+  );
+```
+
+A first-class extension point ships in a later phase.
+
+## Ship a fixture to CI
+
+The simplest pattern: commit a `ComputerSpec` as a TypeScript file, materialize it in a CI job, run your agent against it, fail the build if the score drops below a threshold.
+
+```ts
+// fixtures/pr-triage.ts
+import { defineComputer } from "cloudbox";
+export const prTriageSpec = defineComputer({ /* … */ });
+```
+
+```yaml
+# .github/workflows/agent-eval.yml
+- run: |
+    npx cloudbox materialize fixtures/pr-triage.ts > .cloudbox/id
+    npx my-agent run --cloudbox $(cat .cloudbox/id)
+    SCORE=$(curl -s $CLOUDBOX_URL/c/$(cat .cloudbox/id)/grade | jq .score)
+    test "$SCORE" -ge 5 || exit 1
+```
+
+A `cloudbox` CLI helper for the materialize-from-disk step ships in a later phase.
+
+## Edit a brief-generated draft
+
+`fromBrief()` produces a spec you can edit. Useful when you want the structure but not the LLM-shaped randomness.
+
+```ts
+import { fromBrief } from "cloudbox";
+
+const draft = await fromBrief("A staff engineer triaging an open PR.", env);
+
+// draft is a ComputerSpec — edit it before materializing.
+draft.rubric.push({
+  id: "ci-fixed",
+  weight: 2,
+  must: "writes a fix that makes CI pass",
+  mustEvent: { type: "wroteFile", path: ".github/workflows/ci.yml" },
+});
+
+const { id } = await materialize(draft, env);
+```

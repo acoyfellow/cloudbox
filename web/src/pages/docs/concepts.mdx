@@ -1,0 +1,122 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Concepts"
+eyebrow: "What's in a Cloudbox"
+description: "A Cloudbox is a typed spec, materialized into a Durable Object plus R2-backed bytes. Six layers of structured data, each constraining the ones below it."
+---
+
+## The shape
+
+Every Cloudbox is six layers. Author them by hand, or generate a draft from a one-line brief and edit before materializing.
+
+```ts
+type ComputerSpec = {
+  profile: Profile;
+  filesystem: SpecFile[];
+  collaborators: Collaborator[];
+  objectives: Objective[];
+  rubric: RubricCriterion[];
+};
+```
+
+## Profile
+
+The persona the agent acts as. Required: a role. Everything else is optional hinting that downstream layers can use.
+
+```ts
+{
+  role: "staff platform engineer",
+  onCall: "primary",
+  seniority: "staff",
+}
+```
+
+## Filesystem
+
+The files the agent inherits when work starts. `kind` is an open vocabulary — common values include `diff`, `log`, `design-doc`, `runbook`, `memo`, `spreadsheet`, `deck`, `pdf`, `config`. New kinds are fine; they just won't get specialized rendering.
+
+```ts
+{
+  path: "src/auth/login.ts",
+  kind: "diff",
+  state: "open-pr",
+  description: "PR diff: switches login from sync to a queue-backed flow.",
+  dependsOn: ["docs/auth-redesign.md"],
+}
+```
+
+The optional `dependsOn` field lets you express that one file is derived from another. Cloudbox materializes files in dependency order so derived artifacts can reference their sources.
+
+## Collaborators
+
+Coworkers the agent can ask for context, feedback, or sign-off. Each has a stable `id` (the rubric references collaborators by id), a `role`, and optional `style` and `focus` fields that shape their replies.
+
+```ts
+{
+  id: "arch",
+  role: "reviewer",
+  style: "architectural",
+  focus: "design",
+  privateFiles: [
+    { path: "notes/queue-tradeoffs.md", kind: "memo" }
+  ],
+}
+```
+
+`privateFiles` are files the agent can't see by default. They're revealed when the agent asks the collaborator for context. This is the structural difference between a Cloudbox and a flat-prompt benchmark: real work has hidden information, and a real agent has to know who holds it.
+
+## Objectives
+
+The productivity outcomes the agent must produce. Each is a stable `id` plus a short title.
+
+```ts
+{
+  id: "triage",
+  title: "Decide approve / request-changes / needs-discussion on the PR",
+}
+```
+
+The agent calls `submit(objective, decision)` to deliver against an objective. The receipt feeds the rubric.
+
+## Rubric
+
+How to grade the agent's trajectory. Pass/fail criteria, written before the agent runs.
+
+```ts
+{
+  id: "design-first",
+  weight: 2,
+  must: "reads docs/auth-redesign.md before editing src/auth/login.ts",
+  mustEvent: {
+    type: "readBefore",
+    before: "docs/auth-redesign.md",
+    after: "src/auth/login.ts",
+  },
+}
+```
+
+The `must` string is documentation — for humans and for an LLM-judge fallback. The `mustEvent` is the structured matcher Cloudbox replays against the receipt log to auto-grade.
+
+### Rubric matchers
+
+Cloudbox v0 supports five matchers:
+
+- `read` — agent read this path at any point
+- `readBefore` — agent read `before` strictly before `after`
+- `submitted` — agent submitted to this objective (optionally with a specific decision)
+- `asked` — agent asked this collaborator at least once
+- `askedOnly` — agent asked `who` and not `notWho`
+
+Criteria without a `mustEvent` are reported as `ungraded` — present in the rubric, not auto-checked. The hook for an LLM-judge fallback ships in a later phase.
+
+## Receipts
+
+Every protocol call writes a receipt to the computer's Durable Object. The grader replays the receipts against the rubric to produce the score. You can inspect the log directly with `GET /c/:id/receipts`.
+
+```ts
+type Receipt = {
+  ts: number;
+  kind: "init" | "read" | "write" | "ask" | "submit" | "grade";
+  payload: Record<string, unknown>;
+};
+```

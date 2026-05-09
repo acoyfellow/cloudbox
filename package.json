@@ -1,24 +1,27 @@
 {
   "name": "cloudbox",
   "version": "0.0.1",
-  "description": "Synthetic cloud computers for long-horizon agent practice on Cloudflare.",
+  "description": "Cloudflare-native synthetic workspaces for agents: files, collaborators, artifacts, receipts, and grading.",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "bun --filter @cloudbox/web build",
-    "dev": "bun run build && bun alchemy dev",
-    "deploy": "bun run build && wrangler deploy",
+    "dev": "bun --filter @cloudbox/web dev",
+    "dev:worker": "bun run build && bunx wrangler dev --local --port 8799",
+    "deploy": "bun run build && bunx wrangler deploy",
     "alchemy:deploy": "bun run build && bun alchemy deploy",
     "destroy": "bun alchemy destroy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "node scripts/e2e.mjs",
-    "check": "bun run build && npm run typecheck && npm run test"
+    "check": "bun run build && bun run typecheck && bun run test && bun run dogfood:fast",
+    "dogfood": "bun run build && node scripts/dogfood.mjs",
+    "dogfood:fast": "node scripts/dogfood.mjs",
+    "dogfood:browser": "bun run build && node scripts/browser-dogfood.mjs",
+    "ci": "bun run check"
   },
   "workspaces": [
-    "apps/*",
-    "packages/*",
-    "docs"
+    "web"
   ],
   "dependencies": {
     "@effect/platform-bun": "4.0.0-beta.58",

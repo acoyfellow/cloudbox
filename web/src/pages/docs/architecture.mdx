@@ -1,0 +1,113 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Architecture"
+eyebrow: "Cloudflare-native"
+description: "Cloudbox is a Worker, one Durable Object per synthetic workspace, R2-backed bytes, and receipt-first grading."
+---
+
+## Shape
+
+```txt
+agent / browser / script
+        │
+        │ HTTP tools
+        ▼
+┌──────────────────────────────────────────────────────────┐
+│ Cloudbox Worker                                          │
+│  /                         docs + home                   │
+│  /demo                     dogfood run                   │
+│  /computers                materialize a spec            │
+│  /brief                    draft a spec from a sentence  │
+│  /c/:id/:action ───────────────┐                         │
+└────────────────────────────────┼─────────────────────────┘
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │ ComputerDO             │
+                    │ one per workspace      │
+                    │                        │
+                    │ state: spec, id        │
+                    │ files: path metadata   │
+                    │ receipts: append-only  │
+                    └───────────┬────────────┘
+                                │
+                                ▼
+                          ┌──────────┐
+                          │   R2     │
+                          │ bytes    │
+                          └──────────┘
+```
+
+## Receipt-first design
+
+Cloudbox is designed for agents I supervise. I do not only want their final answer;
+I want durable evidence of how they got there.
+
+Every protocol action appends a receipt:
+
+- `init` — workspace was materialized
+- `read` — agent inspected a file
+- `write` — agent produced or changed an artifact
+- `ask` — agent consulted a collaborator
+- `submit` — agent committed to an objective outcome
+- `grade` — rubric was replayed against the trail
+
+The grader is intentionally structural in v0. It checks facts like:
+
+- read this path
+- wrote this path
+- read A before B
+- asked this person and not that person
+- submitted this objective
+
+That keeps the dogfood loop deterministic and cheap.
+
+## Durable Object per workspace
+
+A materialized Cloudbox maps to one Durable Object instance. The id is a stable
+hash of the spec, so repeated materialization is idempotent.
+
+The DO owns three SQLite tables:
+
+- `state` — immutable spec and materialization metadata
+- `files` — file index, kind, state, dependency edges, R2 key
+- `receipts` — ordered, append-only evidence log
+
+This gives every agent run an isolated world with its own durable trail.
+
+## R2 for bytes
+
+The DO stores file metadata. File bytes and artifacts live in R2 under:
+
+```txt
+<computer-id>/<path>
+```
+
+Local/no-binding development still works with placeholder content. When R2 is
+bound, reads and writes persist real bytes.
+
+## Optional Cloudflare pieces
+
+Cloudbox's core loop is Worker + Durable Objects + R2. Other Cloudflare services
+fit naturally around it:
+
+- **D1** for cross-workspace indexes, sweeps, history, leaderboards
+- **Queues** for bulk materialization or asynchronous grading
+- **Workers AI** for brief-to-spec generation and future judge fallbacks
+- **Workflows / Cron Triggers** for cleanup and long-running sweeps
+- **Access** for private agent workspaces
+
+## Dogfood path
+
+The demo is not separate from the product. It is a Cloudbox spec about Cloudbox:
+
+```txt
+README.md                 positioning
+/docs/quickstart.md       seven-minute path
+/docs/architecture.md     infra shape
+skeptic                   release reviewer
+artifacts/launch-note.md  generated handoff
+```
+
+The agent earns points only by leaving the right receipts. That is the product:
+constrain the workspace, run the agent, inspect the trail, grade the behavior.

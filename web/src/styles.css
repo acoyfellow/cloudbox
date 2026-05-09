@@ -1,0 +1,135 @@
+@import "tailwindcss";
+@import "@cloudflare/kumo/styles";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html {
+  background: var(--color-kumo-base);
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.copy-prose p {
+  margin: 0 0 0.8rem;
+}
+
+/* Inline code only — pre > code keeps its own block styling. */
+.copy-prose :not(pre) > code {
+  border: 1px solid var(--color-kumo-line);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  background: var(--color-kumo-elevated);
+}
+
+/* Prose styling for MDX docs. Shiki <pre class="astro-code"> blocks bring
+   their own background + colors via inline styles, so we explicitly leave
+   them alone. Plain <pre> (no language) gets a basic block style. */
+.cloudbox-prose h2 {
+  margin-top: 3rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-kumo-default);
+  line-height: 1.4;
+}
+@media (min-width: 768px) {
+  .cloudbox-prose h2 {
+    font-size: 1.5rem;
+  }
+}
+.cloudbox-prose h3 {
+  margin-top: 2rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-kumo-default);
+}
+.cloudbox-prose p {
+  margin-top: 0.75rem;
+}
+.cloudbox-prose a {
+  color: var(--color-kumo-default);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cloudbox-prose strong {
+  color: var(--color-kumo-default);
+}
+.cloudbox-prose ul {
+  margin-top: 0.75rem;
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.cloudbox-prose ul > li + li,
+.cloudbox-prose ol > li + li {
+  margin-top: 0.5rem;
+}
+.cloudbox-prose ol {
+  margin-top: 0.75rem;
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+/* Inline code: same idiom as copy-prose. */
+.cloudbox-prose :not(pre) > code {
+  border: 1px solid var(--color-kumo-line);
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  background: var(--color-kumo-elevated);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.875em;
+}
+/* Plain <pre> (no language) — typically ASCII diagrams. Render as a
+   light kumo-elevated block. Shiki blocks (.astro-code) are excluded so
+   their inline theme styles win. */
+.cloudbox-prose pre:not(.astro-code) {
+  margin-top: 1rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-kumo-line);
+  background: var(--color-kumo-elevated);
+  color: var(--color-kumo-default);
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.cloudbox-prose pre:not(.astro-code) > code {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+/* Shiki blocks: just give them top spacing + rounded corners; everything
+   else (background, foreground, padding) comes from Shiki's inline styles. */
+.cloudbox-prose pre.astro-code {
+  margin-top: 1rem;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+@keyframes cb-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cb-banner-in {
+  animation: cb-banner-in 280ms ease-out;
+}

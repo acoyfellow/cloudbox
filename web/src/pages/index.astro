@@ -1,0 +1,93 @@
+---
+export const prerender = true;
+
+import { Code } from "astro:components";
+import Base from "@/layouts/Base.astro";
+
+const example = `import { defineComputer, materialize, grade } from "cloudbox";
+
+const spec = defineComputer({
+  profile: { role: "staff platform engineer" },
+  filesystem: [
+    { path: "src/auth/login.ts", kind: "diff", state: "open-pr" },
+    { path: "docs/auth-redesign.md", kind: "design-doc" },
+  ],
+  collaborators: [{ id: "arch", role: "reviewer", style: "architectural" }],
+  objectives: [{ id: "triage", title: "Decide on the PR" }],
+  rubric: [
+    { id: "design-first", weight: 2,
+      mustEvent: { type: "readBefore",
+                   before: "docs/auth-redesign.md",
+                   after: "src/auth/login.ts" } },
+  ],
+});
+
+const computer = await materialize(spec, env);
+// → hand computer.id to your agent, then:
+const result = await grade(computer.id, env);
+// → { score: 2, max: 2, passed: ["design-first"], failed: [] }`;
+---
+
+<Base>
+  <div class="mx-auto flex max-w-3xl flex-col gap-14 px-4 py-16 md:py-20">
+
+    <section>
+      <h1 class="text-3xl font-semibold tracking-tight text-kumo-default sm:text-4xl md:text-5xl">
+        Provision workspaces for testing AI agents.
+      </h1>
+      <p class="mt-5 max-w-xl text-base leading-7 text-kumo-strong sm:text-lg sm:leading-8">
+        A typed spec becomes a real environment your agent can operate in:
+        files, collaborators, a graded rubric.
+      </p>
+      <div class="mt-7 flex flex-wrap gap-3">
+        <a
+          href="/demo"
+          class="inline-flex items-center gap-2 rounded-md bg-kumo-contrast px-4 py-2 text-sm font-medium text-kumo-base hover:opacity-90"
+        >
+          See it run
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
+            <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path>
+          </svg>
+        </a>
+        <a
+          href="/docs"
+          class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
+        >
+          Read the docs
+        </a>
+      </div>
+    </section>
+
+    <section
+      aria-label="Example"
+      class="overflow-hidden rounded-xl border border-kumo-line p-5 sm:p-6 [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-sm [&>pre]:leading-6"
+      style="background-color:#24292e"
+    >
+      <Code code={example} lang="ts" theme="github-dark" />
+    </section>
+
+    <footer class="border-t border-kumo-line pt-8 text-sm">
+      <ul class="grid gap-x-12 gap-y-6 sm:grid-cols-3">
+        <li>
+          <a href="/docs/concepts" class="block text-kumo-strong hover:text-kumo-default">
+            <div>The spec</div>
+            <div class="mt-1 font-mono text-xs">defineComputer()</div>
+          </a>
+        </li>
+        <li>
+          <a href="/docs/api" class="block text-kumo-strong hover:text-kumo-default">
+            <div>The protocol</div>
+            <div class="mt-1 font-mono text-xs">/c/:id/*</div>
+          </a>
+        </li>
+        <li>
+          <a href="/docs/recipes" class="block text-kumo-strong hover:text-kumo-default">
+            <div>Pair with Think</div>
+            <div class="mt-1 font-mono text-xs">createCloudboxTools()</div>
+          </a>
+        </li>
+      </ul>
+    </footer>
+
+  </div>
+</Base>

@@ -1,18 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cloudbox",
-  "main": "apps/web/src/worker.ts",
+  "main": "web/dist/_worker.js/index.js",
   "compatibility_date": "2026-04-30",
-  "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
-  "routes": [
-    {
-      "pattern": "cloudbox.coey.dev",
-      "custom_domain": true
-    }
+  "compatibility_flags": [
+    "nodejs_compat"
   ],
+  "workers_dev": true,
   "assets": {
-    "directory": "apps/web/dist/client",
+    "directory": "web/dist",
     "binding": "ASSETS"
   },
   "observability": {
@@ -25,7 +21,7 @@
     {
       "binding": "DB",
       "database_name": "cloudbox",
-      "database_id": "c1b559e8-c2d7-45de-bb20-9ee76bf366e3",
+      "database_id": "bd767c58-b996-4e51-a99a-8461c03bdb42",
       "migrations_dir": "migrations"
     }
   ],
@@ -35,20 +31,23 @@
       "bucket_name": "cloudbox-artifacts"
     }
   ],
-  "queues": {
-    "producers": [
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
       {
-        "binding": "RUNS",
-        "queue": "cloudbox-runs"
-      }
-    ],
-    "consumers": [
-      {
-        "queue": "cloudbox-runs"
+        "name": "CLOUDBOX_COMPUTER",
+        "class_name": "ComputerDO"
       }
     ]
   },
-  "ai": {
-    "binding": "AI"
-  }
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "ComputerDO"
+      ]
+    }
+  ]
 }

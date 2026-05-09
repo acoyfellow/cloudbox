@@ -10,8 +10,8 @@
     "noEmit": true,
     "types": ["@cloudflare/workers-types", "node", "vitest/globals"],
     "paths": {
-      "@/*": ["./apps/web/src/*"]
+      "@/*": ["./web/src/*"]
     }
   },
-  "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "tests/**/*.ts"]
+  "include": ["web/**/*.ts", "web/**/*.tsx", "src/**/*.ts", "tests/**/*.ts"]
 }

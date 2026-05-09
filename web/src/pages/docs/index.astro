@@ -1,0 +1,66 @@
+---
+import Doc from "@/layouts/Doc.astro";
+import Arrow from "@/components/Arrow.astro";
+
+const cards = [
+  {
+    href: "/docs/quickstart",
+    title: "Quickstart",
+    body: "Run Cloudbox locally and watch a sample agent grade in under five minutes.",
+  },
+  {
+    href: "/docs/dogfood",
+    title: "Dogfood demo",
+    body: "A real Cloudbox agent runner reviews Cloudbox itself, writes an artifact, and grades from receipts.",
+  },
+  {
+    href: "/docs/concepts",
+    title: "Concepts",
+    body: "What's actually in a Cloudbox: profile, filesystem, collaborators, objectives, rubric.",
+  },
+  {
+    href: "/docs/api",
+    title: "API reference",
+    body: "Every endpoint with curl examples and full response shapes.",
+  },
+  {
+    href: "/docs/architecture",
+    title: "Architecture",
+    body: "One Worker, one Durable Object per computer, R2 for bytes. What runs where.",
+  },
+];
+---
+
+<Doc
+  eyebrow="Documentation"
+  title="Cloudbox docs"
+  description="Cloudbox gives my agents Cloudflare-native synthetic workspaces: files to inspect, collaborators to ask, artifacts to write, receipts to audit, and rubrics to grade. These docs show the seven-minute path, the dogfood run, the core concepts, and the API."
+>
+  <h2>Pick your path</h2>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {
+      cards.map((card) => (
+        <a
+          href={card.href}
+          class="group flex items-start justify-between gap-3 rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated"
+        >
+          <div class="min-w-0">
+            <div class="font-semibold text-kumo-default">{card.title}</div>
+            <div class="mt-1 text-sm leading-6 text-kumo-strong">
+              {card.body}
+            </div>
+          </div>
+          <Arrow size={16} />
+        </a>
+      ))
+    }
+  </div>
+
+  <h2>Status</h2>
+  <p>
+    Alpha. The <code>defineComputer</code> + <code>materialize</code> + <code
+      >grade</code
+    > surface is stable enough to build on. The Think integration ships in v0.
+    Source on <a href="https://github.com/acoyfellow/cloudbox">GitHub</a>.
+  </p>
+</Doc>

@@ -1,0 +1,88 @@
+---
+import Base from "@/layouts/Base.astro";
+
+export interface Props {
+  title: string;
+  description?: string;
+  eyebrow?: string;
+}
+
+const { title, description, eyebrow } = Astro.props;
+const pathname = Astro.url.pathname;
+
+const sections = [
+  {
+    label: "Start here",
+    items: [
+      { href: "/docs", label: "Overview" },
+      { href: "/docs/quickstart", label: "Quickstart" },
+      { href: "/docs/dogfood", label: "Dogfood demo" },
+    ],
+  },
+  {
+    label: "Understand",
+    items: [
+      { href: "/docs/concepts", label: "Concepts" },
+      { href: "/docs/architecture", label: "Architecture" },
+    ],
+  },
+  {
+    label: "Use it",
+    items: [
+      { href: "/docs/recipes", label: "Recipes" },
+      { href: "/docs/api", label: "API reference" },
+    ],
+  },
+];
+---
+
+<Base title={`Cloudbox · ${title}`} description={description}>
+  <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:py-12 lg:grid-cols-[220px_1fr] lg:gap-12">
+    <aside class="lg:sticky lg:top-20 lg:self-start">
+      <nav
+        aria-label="Docs"
+        class="-mx-1 flex gap-2 overflow-x-auto pb-2 lg:mx-0 lg:flex-col lg:gap-6 lg:overflow-visible lg:pb-0"
+      >
+        {
+          sections.map((group) => (
+            <div class="shrink-0 lg:shrink">
+              <div class="hidden text-xs font-semibold uppercase tracking-wide text-kumo-strong lg:block">
+                {group.label}
+              </div>
+              <ul class="mt-0 flex gap-1 lg:mt-2 lg:flex-col">
+                {group.items.map((item) => {
+                  const active = pathname === item.href;
+                  return (
+                    <li>
+                      <a
+                        href={item.href}
+                        class:list={[
+                          "block whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition-colors lg:py-2",
+                          active
+                            ? "bg-kumo-elevated text-kumo-default"
+                            : "text-kumo-strong hover:bg-kumo-elevated",
+                        ]}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+    </aside>
+
+    <article class="copy-prose w-full max-w-3xl pb-16 min-w-0">
+      {eyebrow ? <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-kumo-strong">{eyebrow}</div> : null}
+      <h1 class="text-3xl font-semibold tracking-tight text-kumo-default md:text-4xl">{title}</h1>
+      {description ? <p class="mt-4 text-base leading-7 text-kumo-strong md:text-lg">{description}</p> : null}
+      <div class="cloudbox-prose mt-8 space-y-6 text-base leading-7 text-kumo-strong">
+        <slot />
+      </div>
+    </article>
+  </div>
+</Base>

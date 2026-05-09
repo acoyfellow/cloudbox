@@ -1,42 +1,38 @@
 import { describe, expect, it } from "vitest";
-import worker from "../apps/web/src/worker.ts";
+import worker from "../src/worker-lite.ts";
 
-describe("Cloudbox Worker API", () => {
-  it("serves the seeded demo", async () => {
-    const response = await worker.fetch(new Request("https://cloudbox.test/api/demo"), {});
+describe("Cloudbox Worker", () => {
+  it("reports health", async () => {
+    const response = await worker.fetch(new Request("https://cloudbox.test/api/health"));
     const body = (await response.json()) as any;
-
     expect(response.status).toBe(200);
-    expect(body.computer.name).toContain("Cloudbox");
-    expect(body.computer.filesystem.files.length).toBeGreaterThanOrEqual(6);
-    expect(body.retrospective.lessons.length).toBeGreaterThan(0);
+    expect(body.ok).toBe(true);
+    expect(body.name).toBe("cloudbox");
   });
 
-  it("generates another synthetic computer", async () => {
+  it("rejects malformed spec on /computers", async () => {
     const response = await worker.fetch(
-      new Request("https://cloudbox.test/api/generate", {
+      new Request("https://cloudbox.test/computers", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          text: "A staff platform engineer preparing incident simulation deliverables.",
-          mode: "short",
-        }),
+        body: JSON.stringify({ not: "a spec" }),
       }),
-      {},
     );
     const body = (await response.json()) as any;
-
-    expect(response.status).toBe(201);
-    expect(body.computer.profile.occupation).toBe("Staff Platform Engineer");
-    expect(body.computer.simulation.period.workingDays).toBe(5);
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("bad_spec");
   });
 
-  it("downloads seeded artifacts", async () => {
-    const response = await worker.fetch(new Request("https://cloudbox.test/api/artifacts/final-pdf"), {});
-    const body = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-disposition")).toContain("Final Recommendation Package.pdf");
-    expect(body).toContain("Final Recommendation Package");
+  it("rejects empty brief", async () => {
+    const response = await worker.fetch(
+      new Request("https://cloudbox.test/brief", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+    );
+    const body = (await response.json()) as any;
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("bad_request");
   });
 });

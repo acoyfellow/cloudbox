@@ -1,0 +1,93 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Quickstart"
+eyebrow: "Seven-minute path"
+description: "Run Cloudbox locally and watch an agent dogfood the Cloudbox launch-readiness workflow."
+---
+
+## Goal
+
+Get from clone to a graded agent run in under seven minutes.
+
+The local demo needs Bun. It does not need secrets for the constrained path.
+Cloudflare bindings are used by the Worker/DO runtime when you run or deploy the app.
+
+## 1. Clone and install
+
+```sh
+git clone https://github.com/acoyfellow/cloudbox
+cd cloudbox
+bun install
+```
+
+## 2. Run the app
+
+```sh
+bun run dev
+```
+
+Open the URL the script prints and go to `/demo`.
+
+## 3. Run the dogfood demo
+
+Click **Run sample agent**.
+
+The scripted agent performs the same shape of work I want from my real agents:
+
+1. read `README.md` for positioning
+2. read `docs/quickstart.md` for the runnable path
+3. read `docs/architecture.md` for the Cloudflare infra shape
+4. ask `skeptic` what claims or gaps would waste agent time
+5. write `artifacts/launch-note.md`
+6. submit a `launch-readiness` decision
+7. receive a score from the durable receipt log
+
+The UI should show receipts streaming in and a final grade.
+
+## 4. Verify the repo
+
+```sh
+bun run check
+```
+
+This builds the docs/app, typechecks, and runs tests.
+
+## 5. Drive the protocol yourself
+
+Materialize a spec:
+
+```sh
+curl -s -X POST http://localhost:8799/computers \
+  -H 'content-type: application/json' \
+  -d @seed/agent-launch.json
+```
+
+Or post your own `ComputerSpec` JSON. The response includes `{ id, baseUrl }`.
+Then use the workspace protocol:
+
+```sh
+curl -s "http://localhost:8799/c/$ID/list"
+curl -s "http://localhost:8799/c/$ID/read?path=README.md"
+curl -s -X POST "http://localhost:8799/c/$ID/ask" \
+  -H 'content-type: application/json' \
+  -d '{"who":"skeptic","message":"What am I overclaiming?"}'
+curl -s -X POST "http://localhost:8799/c/$ID/write" \
+  -H 'content-type: application/json' \
+  -d '{"path":"artifacts/launch-note.md","content":"ready"}'
+curl -s -X POST "http://localhost:8799/c/$ID/submit" \
+  -H 'content-type: application/json' \
+  -d '{"objective":"launch-readiness","decision":"share"}'
+curl -s "http://localhost:8799/c/$ID/grade"
+```
+
+## Stop condition
+
+The quickstart is healthy when a fresh clone can:
+
+```sh
+bun install
+bun run check
+bun run dev
+```
+
+…and `/demo` produces a visible receipt trail plus a nonzero grade.

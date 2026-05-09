@@ -6,3 +6,6 @@ docs/dist/
 .alchemy/
 .dev.vars
 *.tsbuildinfo
+
+web/.astro/
+web/dist/

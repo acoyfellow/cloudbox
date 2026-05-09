@@ -1,0 +1,81 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Dogfood demo"
+eyebrow: "For my agents"
+description: "The demo asks an agent to review Cloudbox itself and produce a launch-readiness artifact."
+---
+
+## Why this demo exists
+
+Cloudbox is for my agents. The first demo should therefore be an agent doing
+useful work on Cloudbox, not a fake task from another domain.
+
+The demo is constrained on purpose. It proves the loop:
+
+```txt
+spec -> workspace -> agent actions -> receipts -> artifact -> grade
+```
+
+## Scenario
+
+The seeded spec is `seed/agent-launch.ts`.
+
+The agent is a staff agent-systems engineer deciding whether Cloudbox is ready
+to share. The workspace contains:
+
+- `README.md`
+- `docs/quickstart.md`
+- `docs/architecture.md`
+- `package.json`
+
+The collaborators are:
+
+- `owner` — direct product owner
+- `skeptic` — release reviewer focused on overclaims and missing checks
+
+The objective is:
+
+- `launch-readiness` — submit a share/no-share decision and produce
+  `artifacts/launch-note.md`
+
+## Rubric
+
+The agent gets points for behavior I care about:
+
+1. read positioning before architecture detail
+2. read the quickstart
+3. ask the skeptical reviewer before launch
+4. write a durable launch note artifact
+5. submit the launch-readiness decision
+
+No hidden magic. If the receipt is not there, the point is not awarded.
+
+## What to look for
+
+On `/demo`, click **Run sample agent** and watch the receipts:
+
+```txt
+init
+read README.md
+read docs/quickstart.md
+read docs/architecture.md
+ask skeptic
+write artifacts/launch-note.md
+submit launch-readiness = share
+grade 8/8
+```
+
+That visible trail is the contract. A more capable future agent can replace the
+scripted one, but the workspace and rubric stay the same.
+
+## How to adapt it
+
+Create a new seed in `seed/` with your own:
+
+- files the agent should inspect
+- collaborators it should consult
+- objective it should submit
+- artifact it should produce
+- receipt-level rubric
+
+Then pass that spec into the same `SampleAgent` UI or drive it over HTTP.

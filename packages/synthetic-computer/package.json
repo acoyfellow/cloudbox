@@ -1,8 +1,0 @@
-{
-  "name": "@cloudbox/synthetic-computer",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  }
-}

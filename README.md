@@ -1,86 +1,125 @@
 # Cloudbox
 
-Generate synthetic cloud computers for training and evaluating long-horizon agents on Cloudflare.
+> Cloudflare-native synthetic workspaces for my agents.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox)
+Cloudbox is the workspace I want every agent to get before it touches real work:
+a typed brief, a populated filesystem, people to ask, objectives to complete,
+artifacts to write, and a rubric that grades the trail it left behind.
 
-Cloudbox turns a persona into a realistic work computer: profile, filesystem, artifacts, collaborators, multi-day simulation, and retrospective lessons. The demo opens on a completed seeded computer, so you can understand and use the repo in under seven minutes.
+It runs on Cloudflare primitives: one Worker, one Durable Object per workspace,
+R2-backed artifact bytes, optional D1 indexes, optional Queues for sweeps, and
+Workers AI hooks when I want generated specs or judges. The important unit is a
+receipt. Every read, write, ask, submit, and grade becomes durable evidence an
+agent can be evaluated against.
 
-## What you get
-
-| | |
-|---|---|
-| **One public Worker URL** | UI + API + static assets |
-| **Synthetic computer pipeline** | persona → profile → filesystem → artifacts → collaborators → simulation → retrospective |
-| **Cloudflare primitives** | Worker, D1, R2, Queue, Workers AI-ready model path |
-| **Downloadable artifacts** | DOCX/XLSX/PPTX/PDF-shaped portable v1 artifacts |
-| **Full-paper mode** | 20-workday simulation path, queueable for longer runs |
-
-## 60-second architecture
-
-```
-Browser
-  │
-  ▼
-Cloudbox Worker ───────────────┐
-  │                            │
-  ├─ /api/demo                 │ seeded complete computer
-  ├─ /api/generate             │ deterministic + Workers AI-ready generation
-  ├─ /api/artifacts/:id        │ downloadable artifacts
-  └─ /api/runs                 │ enqueue longer full-paper work
-       │                       │
-       ├─ D1                   │ computers, runs, events
-       ├─ R2                   │ generated artifacts + exports
-       └─ Queue                │ long-running simulations
-```
-
-## Run locally
+## Seven-minute path
 
 ```sh
+git clone https://github.com/acoyfellow/cloudbox
+cd cloudbox
 bun install
-bun alchemy dev
+bun run dev
 ```
 
-Open the local URL, then click through Filesystem, Artifacts, Collaborators, Simulation Log, and Retrospective.
+Open the printed URL and click **See it run**.
 
-## Repo map
+The demo dogfoods Cloudbox: a constrained agent reviews Cloudbox's own launch
+readiness docs, asks a skeptical reviewer for overclaim checks, writes
+`artifacts/launch-note.md`, submits a share/no-share decision, and receives a
+score from the receipt log.
 
+## What an agent sees
+
+```ts
+import { defineComputer, materialize, grade } from "cloudbox";
+
+const spec = defineComputer({
+  profile: { role: "staff agent systems engineer" },
+  filesystem: [
+    { path: "README.md", kind: "design-doc" },
+    { path: "docs/quickstart.md", kind: "runbook" },
+    { path: "docs/architecture.md", kind: "design-doc" },
+  ],
+  collaborators: [
+    { id: "skeptic", role: "release-reviewer", focus: "catch overclaims" },
+  ],
+  objectives: [
+    { id: "launch-readiness", title: "Decide whether this is ready to share" },
+  ],
+  rubric: [
+    { id: "read-quickstart", weight: 1, must: "reads the quickstart", mustEvent: { type: "read", path: "docs/quickstart.md" } },
+    { id: "asks-skeptic", weight: 2, must: "asks the skeptical reviewer", mustEvent: { type: "asked", who: "skeptic" } },
+    { id: "writes-note", weight: 2, must: "writes a launch note", mustEvent: { type: "wrote", path: "artifacts/launch-note.md" } },
+  ],
+});
+
+const computer = await materialize(spec, env);
+// hand computer.id to an agent, then grade the receipts
+const result = await grade(computer.id, env);
 ```
+
+## Protocol
+
+Any runtime can drive a materialized workspace over HTTP:
+
+```sh
+COMPUTER=$(curl -s -X POST http://localhost:8799/computers -d @spec.json | jq -r .id)
+
+curl -s "http://localhost:8799/c/$COMPUTER/list"
+curl -s "http://localhost:8799/c/$COMPUTER/read?path=README.md"
+curl -s -X POST "http://localhost:8799/c/$COMPUTER/ask" \
+  -H 'content-type: application/json' \
+  -d '{"who":"skeptic","message":"What am I overclaiming?"}'
+curl -s -X POST "http://localhost:8799/c/$COMPUTER/write" \
+  -H 'content-type: application/json' \
+  -d '{"path":"artifacts/launch-note.md","content":"ready"}'
+curl -s -X POST "http://localhost:8799/c/$COMPUTER/submit" \
+  -H 'content-type: application/json' \
+  -d '{"objective":"launch-readiness","decision":"share"}'
+curl -s "http://localhost:8799/c/$COMPUTER/grade"
+```
+
+## Repo
+
+```txt
 cloudbox/
-├── alchemy.run.ts                  # Cloudflare infra in one TypeScript file
-├── apps/web/                       # Worker API + static UI
-├── packages/synthetic-computer/    # paper pipeline domain model
-├── packages/artifacts/             # artifact exporters
-├── packages/evals/                 # retrospective/rubric logic
-├── docs/                           # public-facing docs site
-└── migrations/                     # D1 schema
+├── README.md
+├── alchemy.run.ts              # Cloudflare infra in one TypeScript file
+├── seed/
+│   ├── agent-launch.ts         # dogfood demo spec
+│   └── pr-triage.ts            # extra example spec
+├── src/
+│   ├── spec.ts                 # ComputerSpec + rubric DSL
+│   ├── materialize.ts          # spec -> Durable Object
+│   ├── computer-do.ts          # workspace state, files, receipts
+│   ├── grade.ts                # receipt replay
+│   ├── brief.ts                # brief -> draft spec helper
+│   └── think.ts                # Think tool bridge
+├── tests/
+└── web/                        # Astro docs, API routes, demo UI
 ```
 
-## API
+## Check
 
-- `GET /api/demo` returns the seeded complete Cloudbox.
-- `POST /api/generate` creates a new Cloudbox from `{ "text": "...", "mode": "demo" | "short" | "full-paper" }`.
-- `POST /api/runs` queues a longer run.
-- `GET /api/artifacts/:id` downloads a generated artifact.
-- `GET /api/export` downloads the manifest for the seeded Cloudbox.
+```sh
+bun run check
+```
 
-## Stack
+## Status
 
-- **Workers** for the public app and API.
-- **D1** for generated computers, run state, and event history.
-- **R2** for artifact objects and exports.
-- **Queues** for long-running simulation work.
-- **Workers AI** as the default generation path.
-- **Alchemy** for Cloudflare infrastructure as TypeScript.
-
-## What works today
-
-- Seeded full-paper Cloudbox opens immediately.
-- Persona-to-simulation pipeline runs locally and in the Worker.
-- Artifact downloads are generated and stored in R2 when available.
-- D1 persistence is active when the Worker has the binding.
-- Queue consumer completes queued run records.
+Alpha. The current product is a Cloudflare-native synthetic workspace and
+receipt grader for agents. Real command execution backends can plug in later;
+the product center is already useful now: constrain an agent, watch its trail,
+and grade whether it behaved the way I needed.
 
 ## License
 
 MIT
+
+## Public demo security
+
+The deployed demo is intentionally small and receipt-first. For a private or shared deployment, set `CLOUDBOX_API_TOKEN`; mutation endpoints then require `Authorization: Bearer <token>` while read-only demo inspection remains available.
+
+## Cleanup
+
+Run-scoped workspaces can be reset with `POST /c/:id/reset`. Old agent-written artifacts and old receipts can be pruned with `POST /c/:id/cleanup` from an authenticated deployment.
