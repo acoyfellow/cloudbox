@@ -23,7 +23,7 @@ const app = await alchemy(projectName, {
 
 const isProd = app.stage === "prod";
 const workerName = isProd ? "cloudbox" : `${app.stage}-cloudbox`;
-const dbName = isProd ? "cloudbox" : `${app.stage}-cloudbox`;
+const dbName = isProd ? "cloudbox-prod" : `${app.stage}-cloudbox`;
 const bucketName = isProd ? "cloudbox-artifacts" : `${app.stage}-cloudbox-artifacts`;
 
 const DB = await D1Database("cloudbox-db", {
