@@ -14,7 +14,9 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --ignore-scripts
+        timeout-minutes: 10
       - run: bun run check
+        timeout-minutes: 10
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -29,9 +31,11 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --ignore-scripts
+        timeout-minutes: 10
       - name: Deploy Cloudbox with Alchemy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
         run: bun run alchemy:deploy
+        timeout-minutes: 10
