@@ -16,9 +16,6 @@ const Stack = Alchemy.Stack(
     const artifacts = yield* Cloudflare.R2Bucket("CloudboxArtifacts", {
       name: "cloudbox-artifacts",
     });
-    const runs = yield* Cloudflare.Queue("CloudboxRuns", {
-      name: "cloudbox-runs",
-    });
     const worker = yield* Cloudflare.Worker("Cloudbox", {
       name: "cloudbox",
       main: "./web/src/worker.ts",
@@ -28,10 +25,10 @@ const Stack = Alchemy.Stack(
         flags: ["nodejs_compat"],
       },
       observability: { enabled: true },
+      domain: "cloudbox.coey.dev",
       bindings: {
         DB: db,
         ARTIFACTS: artifacts,
-        RUNS: runs,
       },
       env: {
         CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
@@ -42,7 +39,7 @@ const Stack = Alchemy.Stack(
       url: worker.url,
       db: db.databaseName,
       artifacts: artifacts.bucketName,
-      queue: runs.queueName,
+      domain: "cloudbox.coey.dev",
     };
   }),
 );
