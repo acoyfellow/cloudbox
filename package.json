@@ -9,7 +9,7 @@
     "dev": "bun --filter @cloudbox/web dev",
     "dev:worker": "bun run build && bunx wrangler dev --local --port 8799",
     "deploy": "bun run build && bunx wrangler deploy",
-    "alchemy:deploy": "bun run build && bun alchemy deploy",
+    "alchemy:deploy": "bun run build && bun alchemy deploy --yes",
     "destroy": "bun alchemy destroy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
