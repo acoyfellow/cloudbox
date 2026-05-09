@@ -13,8 +13,9 @@ const app = await alchemy(projectName, {
   stateStore: (scope) => scope.local
     ? new FileSystemStateStore(scope)
     : new CloudflareStateStore(scope, {
-        scriptName: "alchemy-state-store",
-        apiToken: alchemy.secret(process.env.CLOUDFLARE_API_TOKEN || ""),
+        scriptName: "cloudbox-state",
+        apiToken: alchemy.secret(process.env.CLOUDFLARE_PERSONAL_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN || ""),
+        accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
         stateToken: alchemy.secret(process.env.ALCHEMY_STATE_TOKEN || ""),
         forceUpdate: true,
       }),
