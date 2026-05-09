@@ -26,11 +26,11 @@ const workerName = isProd ? "cloudbox" : `${app.stage}-cloudbox`;
 const dbName = isProd ? "cloudbox-prod" : `${app.stage}-cloudbox`;
 const bucketName = isProd ? "cloudbox-artifacts" : `${app.stage}-cloudbox-artifacts`;
 
-const DB = {
-  type: "d1" as const,
+const DB = await D1Database("cloudbox-db", {
   name: dbName,
-  id: process.env.CLOUDBOX_D1_DATABASE_ID ?? "00000000-0000-0000-0000-000000000000",
-};
+  migrationsDir: "migrations",
+  adopt: true,
+});
 
 const ARTIFACTS = await R2Bucket("cloudbox-artifacts", {
   name: bucketName,
