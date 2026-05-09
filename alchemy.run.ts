@@ -13,7 +13,7 @@ const app = await alchemy(projectName, {
   stateStore: (scope) => scope.local
     ? new FileSystemStateStore(scope)
     : new CloudflareStateStore(scope, {
-        scriptName: `${projectName}-state`,
+        scriptName: "alchemy-state-store",
         apiToken: alchemy.secret(process.env.CLOUDFLARE_API_TOKEN || ""),
         stateToken: alchemy.secret(process.env.ALCHEMY_STATE_TOKEN || ""),
         forceUpdate: true,
