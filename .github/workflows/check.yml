@@ -52,5 +52,6 @@ jobs:
           CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          CLOUDBOX_D1_DATABASE_ID: ${{ secrets.CLOUDBOX_D1_DATABASE_ID }}
         run: bun run alchemy:deploy
         timeout-minutes: 10
