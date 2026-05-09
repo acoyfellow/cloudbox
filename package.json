@@ -9,7 +9,7 @@
     "dev": "bun --filter @cloudbox/web dev",
     "dev:worker": "bun run build && bunx wrangler dev --local --port 8799",
     "deploy": "bun run build && bunx wrangler deploy",
-    "alchemy:deploy": "bun run build && bun alchemy deploy --yes --adopt",
+    "alchemy:deploy": "bun run build && bun alchemy deploy --stage prod --adopt",
     "destroy": "bun alchemy destroy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -26,8 +26,8 @@
   "dependencies": {
     "@effect/platform-bun": "4.0.0-beta.58",
     "@effect/platform-node": "4.0.0-beta.58",
-    "alchemy": "2.0.0-beta.25",
-    "effect": "4.0.0-beta.58"
+    "alchemy": "^0.93.7",
+    "effect": "^4.0.0-beta.58"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260430.1",

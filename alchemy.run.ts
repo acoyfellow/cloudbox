@@ -1,48 +1,61 @@
-import * as Alchemy from "alchemy";
-import * as Cloudflare from "alchemy/Cloudflare";
-import * as Effect from "effect/Effect";
+import alchemy from "alchemy";
+import {
+  D1Database,
+  R2Bucket,
+  Worker,
+} from "alchemy/cloudflare";
+import { CloudflareStateStore, FileSystemStateStore } from "alchemy/state";
 
-const Stack = Alchemy.Stack(
-  "cloudbox",
-  {
-    providers: Cloudflare.providers(),
-    state: Cloudflare.state(),
+const projectName = "cloudbox";
+
+const app = await alchemy(projectName, {
+  password: process.env.ALCHEMY_PASSWORD || "cloudbox-local-password",
+  stateStore: (scope) => scope.local
+    ? new FileSystemStateStore(scope)
+    : new CloudflareStateStore(scope, {
+        scriptName: `${projectName}-state`,
+        apiToken: alchemy.secret(process.env.CLOUDFLARE_API_TOKEN || ""),
+        stateToken: alchemy.secret(process.env.ALCHEMY_STATE_TOKEN || ""),
+        forceUpdate: true,
+      }),
+});
+
+const isProd = app.stage === "prod";
+const workerName = isProd ? "cloudbox" : `${app.stage}-cloudbox`;
+const dbName = isProd ? "cloudbox" : `${app.stage}-cloudbox`;
+const bucketName = isProd ? "cloudbox-artifacts" : `${app.stage}-cloudbox-artifacts`;
+
+const DB = await D1Database("cloudbox-db", {
+  name: dbName,
+  migrationsDir: "migrations",
+  adopt: true,
+});
+
+const ARTIFACTS = await R2Bucket("cloudbox-artifacts", {
+  name: bucketName,
+  adopt: true,
+});
+
+export const WORKER = await Worker("cloudbox-worker", {
+  name: workerName,
+  entrypoint: "./web/src/worker.ts",
+  assets: "./web/dist",
+  adopt: true,
+  compatibilityDate: "2026-04-30",
+  compatibilityFlags: ["nodejs_compat"],
+  observability: { enabled: true },
+  url: true,
+  domains: isProd ? ["cloudbox.coey.dev"] : [],
+  bindings: {
+    DB,
+    ARTIFACTS,
   },
-  Effect.gen(function* () {
-    const db = yield* Cloudflare.D1Database("CloudboxDB", {
-      name: "cloudbox",
-      migrationsDir: "migrations",
-    });
-    const artifacts = yield* Cloudflare.R2Bucket("CloudboxArtifacts", {
-      name: "cloudbox-artifacts",
-    });
-    const worker = yield* Cloudflare.Worker("Cloudbox", {
-      name: "cloudbox",
-      main: "./web/src/worker.ts",
-      assets: "./web/dist",
-      compatibility: {
-        date: "2026-04-30",
-        flags: ["nodejs_compat"],
-      },
-      observability: { enabled: true },
-      domain: "cloudbox.coey.dev",
-      bindings: {
-        DB: db,
-        ARTIFACTS: artifacts,
-      },
-      env: {
-        CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
-      },
-    });
+  env: {
+    CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
+    ...(process.env.CLOUDBOX_API_TOKEN
+      ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }
+      : {}),
+  },
+});
 
-    return {
-      url: worker.url,
-      db: db.databaseName,
-      artifacts: artifacts.bucketName,
-      domain: "cloudbox.coey.dev",
-    };
-  }),
-);
-
-export default Stack;
-export type CloudboxEnv = Cloudflare.InferEnv<typeof Stack>;
+await app.finalize();
