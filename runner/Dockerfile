@@ -10,4 +10,4 @@ COPY server.mjs /runner/server.mjs
 
 ENV PORT=8080
 EXPOSE 8080
-CMD ["node", "/runner/server.mjs"]
+CMD ["bun", "/runner/server.mjs"]
