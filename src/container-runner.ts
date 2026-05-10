@@ -31,7 +31,7 @@ export async function runInContainer(runner: unknown, input: ContainerRunRequest
   if (binding?.fetch) target = binding as { fetch: typeof fetch };
   if (!target && binding?.get && binding.idFromName) target = binding.get(binding.idFromName("default"));
   if (!target?.fetch) throw new Error("CLOUDBOX_RUNNER container binding is not available");
-  const response = await target.fetch("http://cloudbox-runner/run", {
+  const response = await target.fetch("http://container/run", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
