@@ -39,7 +39,7 @@ const ARTIFACTS = await R2Bucket("cloudbox-artifacts", {
 
 export const WORKER = await Worker("cloudbox-worker", {
   name: workerName,
-  entrypoint: "./web/src/worker.ts",
+  entrypoint: "./web/dist/_worker.js/index.js",
   assets: "./web/dist",
   adopt: true,
   compatibilityDate: "2026-04-30",
