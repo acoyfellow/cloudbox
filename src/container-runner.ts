@@ -26,9 +26,13 @@ export type ContainerRunResult = {
 };
 
 export async function runInContainer(runner: unknown, input: ContainerRunRequest): Promise<ContainerRunResult> {
-  const binding = runner as { fetch?: typeof fetch } | undefined;
-  if (!binding?.fetch) throw new Error("CLOUDBOX_RUNNER container binding is not available");
-  const response = await binding.fetch("http://cloudbox-runner/run", {
+  const binding = runner as { fetch?: typeof fetch; get?: (id: unknown) => { fetch: typeof fetch }; idFromName?: (name: string) => unknown } | undefined;
+  let fetcher = binding?.fetch?.bind(binding);
+  if (!fetcher && binding?.get && binding.idFromName) {
+    fetcher = binding.get(binding.idFromName("default")).fetch;
+  }
+  if (!fetcher) throw new Error("CLOUDBOX_RUNNER container binding is not available");
+  const response = await fetcher("http://cloudbox-runner/run", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
