@@ -64,7 +64,7 @@ export function createCloudboxTools(
   config: CloudboxToolsConfig,
 ): Record<"env_list" | "env_read" | "env_write" | "env_ask" | "env_submit", CloudboxTool> {
   const origin = config.origin ?? "https://cloudbox.local";
-  const base = `${origin}/c/${config.computerId}`;
+  const base = `${origin}/api/c/${config.computerId}`;
 
   const get = async (path: string): Promise<unknown> => {
     const r = await config.fetcher(`${base}${path}`, { headers: config.headers });

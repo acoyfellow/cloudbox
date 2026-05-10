@@ -10,6 +10,7 @@
 import { App } from "astro/app";
 import { handle } from "@astrojs/cloudflare/handler";
 import { ComputerDO } from "../../src/computer-do.ts";
+import { api } from "../../src/http.ts";
 
 export class CloudboxRunner implements DurableObject {
   async fetch(request: Request): Promise<Response> {
@@ -25,13 +26,13 @@ export default {
         headers: { "content-type": "application/json; charset=utf-8" },
       });
     }
-    if (url.pathname === "/computers") {
+    if (url.pathname === "/api/computers") {
       return new Response(JSON.stringify({ error: "bad_spec", detail: "expected a ComputerSpec body" }), {
         status: 400,
         headers: { "content-type": "application/json; charset=utf-8" },
       });
     }
-    if (url.pathname === "/brief") {
+    if (url.pathname === "/api/brief") {
       return new Response(JSON.stringify({ error: "bad_request", detail: "brief required" }), {
         status: 400,
         headers: { "content-type": "application/json; charset=utf-8" },
@@ -46,6 +47,8 @@ export function createExports(manifest: ConstructorParameters<typeof App>[0]) {
   return {
     default: {
       async fetch(request: Request, env: unknown, ctx: ExecutionContext) {
+        const url = new URL(request.url);
+        if (url.pathname.startsWith("/api/")) return api.fetch(request, env as any, ctx);
         return handle(manifest as any, app, request as any, env as any, ctx);
       },
     },
