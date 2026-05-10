@@ -50,8 +50,6 @@ export const WORKER = await Worker("cloudbox-worker", {
   bindings: {
     DB,
     ARTIFACTS,
-  },
-  env: {
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
     ...(process.env.CLOUDBOX_API_TOKEN
       ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }
