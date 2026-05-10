@@ -11,6 +11,12 @@ import { App } from "astro/app";
 import { handle } from "@astrojs/cloudflare/handler";
 import { ComputerDO } from "../../src/computer-do.ts";
 
+export class CloudboxRunner extends DurableObject {
+  async fetch(request: Request): Promise<Response> {
+    return fetch(request);
+  }
+}
+
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -44,5 +50,6 @@ export function createExports(manifest: ConstructorParameters<typeof App>[0]) {
       },
     },
     ComputerDO,
+    CloudboxRunner,
   };
 }
