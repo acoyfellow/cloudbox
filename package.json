@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "bun --filter @cloudbox/web build",
-    "dev": "bun --filter @cloudbox/web dev",
+    "dev": "node scripts/dev.mjs",
     "dev:worker": "bun run build && bunx wrangler dev --local --port 8799",
     "deploy": "bun run build && bunx wrangler deploy",
     "alchemy:deploy": "bun run build && bun alchemy deploy --stage prod --adopt",
