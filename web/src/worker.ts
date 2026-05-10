@@ -11,7 +11,7 @@ import { App } from "astro/app";
 import { handle } from "@astrojs/cloudflare/handler";
 import { ComputerDO } from "../../src/computer-do.ts";
 
-export class CloudboxRunner extends DurableObject {
+export class CloudboxRunner implements DurableObject {
   async fetch(request: Request): Promise<Response> {
     return fetch(request);
   }
