@@ -18,27 +18,6 @@ type RunResponse = {
   detail?: string;
 };
 
-const defaultSpec = `{
-  "name": "agent-launch-readiness",
-  "runId": "browser-playground",
-  "profile": { "role": "release engineer" },
-  "filesystem": [
-    { "path": "README.md", "kind": "memo", "description": "Product positioning" },
-    { "path": "docs/quickstart.md", "kind": "runbook", "description": "Install path" }
-  ],
-  "collaborators": [
-    { "id": "skeptic", "role": "reviewer", "focus": "Call out anything that is not proven." }
-  ],
-  "objectives": [
-    { "id": "launch-readiness", "title": "Launch readiness", "expectedArtifact": "artifacts/launch-note.md" }
-  ],
-  "rubric": [
-    { "id": "read-readme", "weight": 1, "must": "read README", "mustEvent": { "type": "read", "path": "README.md" } },
-    { "id": "ask-skeptic", "weight": 1, "must": "ask skeptic", "mustEvent": { "type": "asked", "who": "skeptic" } },
-    { "id": "write-artifact", "weight": 1, "must": "write artifact", "mustEvent": { "type": "wrote", "path": "artifacts/launch-note.md" } },
-    { "id": "submit", "weight": 1, "must": "submit launch readiness", "mustEvent": { "type": "submitted", "objective": "launch-readiness" } }
-  ]
-}`;
 
 export default function Playground() {
   const [repo, setRepo] = useState("https://github.com/acoyfellow/cloudbox");
@@ -48,12 +27,7 @@ export default function Playground() {
   const [timeoutMs, setTimeoutMs] = useState("30000");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<RunResponse | null>(null);
-  const [rawOpen, setRawOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [rawPayload, setRawPayload] = useState("");
-  const [workspaceSpec, setWorkspaceSpec] = useState(defaultSpec);
-  const [workspaceResult, setWorkspaceResult] = useState<unknown>(null);
 
   const payload = useMemo(() => ({
     repo,
@@ -81,19 +55,6 @@ export default function Playground() {
       setResult({ ok: false, error: String(error instanceof Error ? error.message : error) });
     } finally {
       setRunning(false);
-    }
-  }
-
-  async function materializeWorkspace() {
-    try {
-      const response = await fetch("/api/computers", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-cloudbox-demo": "1" },
-        body: workspaceSpec,
-      });
-      setWorkspaceResult(await response.json());
-    } catch (error) {
-      setWorkspaceResult({ error: String(error instanceof Error ? error.message : error) });
     }
   }
 
@@ -138,20 +99,6 @@ export default function Playground() {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        <details open={advancedOpen} onToggle={(event) => setAdvancedOpen(event.currentTarget.open)} className="rounded-lg border border-kumo-line bg-kumo-base p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-kumo-default">Advanced: edit raw /api/runs payload</summary>
-          <Textarea label="JSON payload" value={displayPayload} onChange={setRawPayload} rows={12} mono />
-          <button type="button" onClick={() => void runRepo(true)} disabled={running} className="mt-3 rounded-md border border-kumo-line px-3 py-2 text-sm text-kumo-default hover:bg-kumo-elevated disabled:opacity-60">Run raw payload</button>
-        </details>
-
-        <details open={workspaceOpen} onToggle={(event) => setWorkspaceOpen(event.currentTarget.open)} className="rounded-lg border border-kumo-line bg-kumo-base p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-kumo-default">Advanced: materialize a receipt workspace</summary>
-          <Textarea label="ComputerSpec" value={workspaceSpec} onChange={setWorkspaceSpec} rows={12} mono />
-          <button type="button" onClick={() => void materializeWorkspace()} className="mt-3 rounded-md border border-kumo-line px-3 py-2 text-sm text-kumo-default hover:bg-kumo-elevated">POST /api/computers</button>
-          {workspaceResult ? <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-kumo-strong">{JSON.stringify(workspaceResult, null, 2)}</pre> : null}
-        </details>
-      </div>
     </div>
   );
 }

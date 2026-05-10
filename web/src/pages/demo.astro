@@ -1,8 +1,6 @@
 ---
 import Base from "@/layouts/Base.astro";
-import SampleAgent from "@/components/SampleAgent.tsx";
 import Playground from "@/components/Playground.tsx";
-import { agentLaunchSpec } from "../../../seed/agent-launch.ts";
 ---
 
 <Base title="Cloudbox · Demo">
@@ -12,14 +10,11 @@ import { agentLaunchSpec } from "../../../seed/agent-launch.ts";
         Demo
       </h1>
       <p class="mt-3 max-w-2xl text-base leading-7 text-kumo-strong">
-        This run gives an agent a small Cloudbox workspace, records every read, ask, write,
-        and submission, then grades the result from receipts.
+        Run a public GitHub repo in Cloudbox. The Worker sends the job to a Cloudflare Container,
+        then returns command receipts, logs, and an artifact you can inspect.
       </p>
     </header>
 
-    <div class="grid gap-8">
-      <Playground client:load />
-      <SampleAgent client:load spec={agentLaunchSpec} />
-    </div>
+    <Playground client:load />
   </div>
 </Base>
