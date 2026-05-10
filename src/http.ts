@@ -50,11 +50,13 @@ api.all("/api/c/:id/:action", async (c) => {
 });
 
 api.post("/api/runs", async (c) => {
-  const auth = authorize(c.req.raw, null, c.env);
+  const demo = c.req.raw.headers.get("x-cloudbox-demo") === "1";
+  const auth = demo ? null : authorize(c.req.raw, null, c.env);
   if (auth) return auth;
   const input = await c.req.json().catch(() => null) as ContainerRunRequest | null;
   const validation = validateRun(input);
   if (validation) return validation;
+  if (demo && !isAllowedDemoRun(input)) return jsonError(c, 403, "demo_not_allowed", "demo runs only allow public GitHub repos with short echo/test commands");
   if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
   try {
     const result = await runInContainer(c.env.CLOUDBOX_RUNNER, input as ContainerRunRequest);
@@ -94,6 +96,14 @@ function validateSpec(spec: ComputerSpec | null): Response | null {
   if (!Array.isArray(spec.objectives)) return jsonErrorResponse(400, "bad_spec", "objectives array required");
   if (!Array.isArray(spec.rubric)) return jsonErrorResponse(400, "bad_spec", "rubric array required");
   return null;
+}
+
+function isAllowedDemoRun(input: ContainerRunRequest | null): boolean {
+  if (!input) return false;
+  const commands = [...(input.commands ?? []), ...(input.verify ?? [])];
+  if (commands.length > 4) return false;
+  if (commands.some((cmd) => !/^(echo |test |pwd$|ls( |$)|node --version$|npm --version$|pnpm --version$|bun --version$)/.test(cmd))) return false;
+  return !!input.repo && /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(input.repo);
 }
 
 function validateRun(input: ContainerRunRequest | null): Response | null {
