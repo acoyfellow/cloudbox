@@ -55,9 +55,8 @@ export default function Playground() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void runRepo(); }}>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Playground</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-kumo-default">Run a repo.</h2>
-            <p className="mt-2 text-sm leading-6 text-kumo-strong">Cloudbox clones it in a Cloudflare Container, runs one command, verifies one command, and returns proof.</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-kumo-default md:text-4xl">Run a repo in Cloudbox.</h1>
+            <p className="mt-2 text-sm leading-6 text-kumo-strong">Clone, run, verify, and inspect proof from a Cloudflare Container.</p>
           </div>
 
           <Field label="Repo" value={repo} onChange={setRepo} />
