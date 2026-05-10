@@ -4,6 +4,7 @@ import {
   R2Bucket,
   Worker,
   Assets,
+  DurableObjectNamespace,
 } from "alchemy/cloudflare";
 import { CloudflareStateStore, FileSystemStateStore } from "alchemy/state";
 
@@ -38,6 +39,11 @@ const ARTIFACTS = await R2Bucket("cloudbox-artifacts", {
   adopt: true,
 });
 
+const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
+  className: "ComputerDO",
+  sqlite: true,
+});
+
 export const WORKER = await Worker("cloudbox-worker", {
   name: workerName,
   entrypoint: "./web/dist/_worker.js/index.js",
@@ -51,6 +57,7 @@ export const WORKER = await Worker("cloudbox-worker", {
     ASSETS: await Assets({ path: "./web/dist" }),
     DB,
     ARTIFACTS,
+    CLOUDBOX_COMPUTER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
     ...(process.env.CLOUDBOX_API_TOKEN
       ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }
