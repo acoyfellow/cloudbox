@@ -1,6 +1,7 @@
 ---
 import Base from "@/layouts/Base.astro";
 import SampleAgent from "@/components/SampleAgent.tsx";
+import Playground from "@/components/Playground.tsx";
 import { agentLaunchSpec } from "../../../seed/agent-launch.ts";
 ---
 
@@ -16,6 +17,9 @@ import { agentLaunchSpec } from "../../../seed/agent-launch.ts";
       </p>
     </header>
 
-    <SampleAgent client:load spec={agentLaunchSpec} />
+    <div class="grid gap-8">
+      <Playground client:load />
+      <SampleAgent client:load spec={agentLaunchSpec} />
+    </div>
   </div>
 </Base>

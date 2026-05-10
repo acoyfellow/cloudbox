@@ -75,7 +75,7 @@ function authorize(request: Request, spec: ComputerSpec | null, env: CloudboxBin
 }
 
 function authorizeAction(request: Request, action: string, env: CloudboxBindings): Response | null {
-  if (request.headers.get("x-cloudbox-demo") === "1" && ["ask", "write", "submit"].includes(action)) return null;
+  if (request.headers.get("x-cloudbox-demo") === "1") return null;
   const token = env.CLOUDBOX_API_TOKEN;
   if (!token) return null;
   const got = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? request.headers.get("x-cloudbox-token");
