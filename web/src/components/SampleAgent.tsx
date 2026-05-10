@@ -4,10 +4,11 @@
 // runs the same Cloudbox agent runner used by scripts/dogfood.mjs. The runner
 // chooses tool calls from the spec and every call is recorded as a receipt.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   materialize,
   list as listFiles,
+  read as readFile,
   grade,
   receipts as fetchReceipts,
   type Materialized,
@@ -19,12 +20,15 @@ import { createCloudboxTools } from "../../../src/think.ts";
 import { runCloudboxAgent } from "../../../src/agent.ts";
 
 type Props = { spec: ComputerSpec };
+type Artifact = { path: string; content: string };
 
 export default function SampleAgent({ spec }: Props) {
   const [computer, setComputer] = useState<Materialized | null>(null);
   const [files, setFiles] = useState<ListedFile[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [gradeResult, setGradeResult] = useState<GradeResult | null>(null);
+  const [artifact, setArtifact] = useState<Artifact | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runSpec, setRunSpec] = useState<ComputerSpec | null>(null);
@@ -45,6 +49,8 @@ export default function SampleAgent({ spec }: Props) {
     if (!computer || running) return;
     setRunning(true);
     setError(null);
+    setArtifact(null);
+    setSelectedReceipt(null);
     setGradeResult(null);
     try {
       const id = computer.id;
@@ -59,7 +65,13 @@ export default function SampleAgent({ spec }: Props) {
       await sleep(200);
       const result = await grade(id);
       setGradeResult(result);
-      await refresh(id);
+      const latest = await refresh(id);
+      const artifactPath = expectedArtifact(runSpec ?? spec);
+      if (artifactPath) {
+        const file = await readFile(id, artifactPath);
+        setArtifact({ path: artifactPath, content: file.content });
+      }
+      setSelectedReceipt(latest.at(-1) ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -70,12 +82,13 @@ export default function SampleAgent({ spec }: Props) {
   async function refresh(id: string) {
     const res = await fetchReceipts(id);
     setReceipts(res.receipts);
+    return res.receipts;
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-8">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-8">
       <aside className="flex flex-col gap-4">
-        <SpecCard computer={computer} files={files} />
+        <SpecCard computer={computer} files={files} artifact={artifact} onSelectArtifact={() => setSelectedReceipt(null)} />
 
         <button
           type="button"
@@ -96,31 +109,40 @@ export default function SampleAgent({ spec }: Props) {
         {gradeResult ? <GradeCard result={gradeResult} /> : null}
       </aside>
 
-      <section className="min-w-0">
-        <ReceiptsLog receipts={receipts} running={running} />
+      <section className="grid min-w-0 gap-4">
+        <RunSummary receipts={receipts} artifact={artifact} gradeResult={gradeResult} running={running} />
+        <ReceiptsLog receipts={receipts} running={running} selected={selectedReceipt} onSelect={setSelectedReceipt} />
+        <Inspector receipt={selectedReceipt} artifact={artifact} />
       </section>
     </div>
   );
 }
 
+function expectedArtifact(spec: ComputerSpec): string | undefined {
+  return spec.objectives.find((o) => o.expectedArtifact)?.expectedArtifact;
+}
+
 function SpecCard({
   computer,
   files,
+  artifact,
+  onSelectArtifact,
 }: {
   computer: Materialized | null;
   files: ListedFile[];
+  artifact: Artifact | null;
+  onSelectArtifact: () => void;
 }) {
   return (
     <div className="rounded-lg border border-kumo-line bg-kumo-elevated p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">
-        Spec
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">Workspace</div>
+        <div className="text-xs text-kumo-strong">{files.length ? `${files.length} files` : "materializing"}</div>
       </div>
       <div className="mt-1 font-mono text-sm text-kumo-default">
         {computer ? computer.id : "materializing..."}
       </div>
-      <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-kumo-strong">
-        Files
-      </div>
+      <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-kumo-strong">Files</div>
       <ul className="mt-2 space-y-1 font-mono text-xs leading-5 text-kumo-default">
         {files.map((file) => (
           <li key={file.path} className="flex items-baseline justify-between gap-3">
@@ -129,6 +151,56 @@ function SpecCard({
           </li>
         ))}
       </ul>
+      {artifact ? (
+        <button
+          type="button"
+          onClick={onSelectArtifact}
+          className="mt-4 flex w-full items-center justify-between gap-3 rounded-md border border-kumo-line bg-kumo-base px-3 py-2 text-left text-xs hover:bg-kumo-elevated"
+        >
+          <span>
+            <span className="block font-semibold text-kumo-default">Artifact</span>
+            <span className="font-mono text-kumo-strong">{artifact.path}</span>
+          </span>
+          <span className="text-kumo-muted">open →</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function RunSummary({
+  receipts,
+  artifact,
+  gradeResult,
+  running,
+}: {
+  receipts: Receipt[];
+  artifact: Artifact | null;
+  gradeResult: GradeResult | null;
+  running: boolean;
+}) {
+  const counts = useMemo(() => {
+    const byKind = new Map<string, number>();
+    for (const receipt of receipts) byKind.set(receipt.kind, (byKind.get(receipt.kind) ?? 0) + 1);
+    return byKind;
+  }, [receipts]);
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-4">
+      <SummaryPill label="Receipts" value={String(receipts.length)} sub={running ? "streaming" : "recorded"} />
+      <SummaryPill label="Reads" value={String(counts.get("read") ?? 0)} sub="files inspected" />
+      <SummaryPill label="Artifact" value={artifact ? "1" : "0"} sub={artifact?.path ?? "pending"} />
+      <SummaryPill label="Grade" value={gradeResult ? `${gradeResult.score}/${gradeResult.max}` : "—"} sub={gradeResult ? "from receipts" : "pending"} />
+    </div>
+  );
+}
+
+function SummaryPill({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div className="rounded-lg border border-kumo-line bg-kumo-elevated p-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">{label}</div>
+      <div className="mt-1 font-mono text-lg text-kumo-default">{value}</div>
+      <div className="truncate text-xs text-kumo-strong" title={sub}>{sub}</div>
     </div>
   );
 }
@@ -157,29 +229,84 @@ function GradeCard({ result }: { result: GradeResult }) {
   );
 }
 
-function ReceiptsLog({ receipts, running }: { receipts: Receipt[]; running: boolean }) {
+function ReceiptsLog({
+  receipts,
+  running,
+  selected,
+  onSelect,
+}: {
+  receipts: Receipt[];
+  running: boolean;
+  selected: Receipt | null;
+  onSelect: (receipt: Receipt) => void;
+}) {
   return (
     <div className="overflow-hidden rounded-lg border border-kumo-line bg-kumo-elevated">
       <header className="flex items-center justify-between border-b border-kumo-line px-4 py-2.5">
-        <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">Receipts</div>
-        <div className="text-xs text-kumo-strong">
-          {receipts.length} {running ? "· streaming" : ""}
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">Receipts</div>
+          <div className="text-xs text-kumo-muted">click a row for metadata</div>
         </div>
+        <div className="text-xs text-kumo-strong">{receipts.length} {running ? "· streaming" : ""}</div>
       </header>
       {receipts.length === 0 ? (
         <div className="p-8 text-center text-sm text-kumo-strong">
-          Click <span className="font-mono">Run sample agent</span> to see receipts stream in.
+          Click <span className="font-mono">Run agent</span> to see receipts stream in.
         </div>
       ) : (
         <ol className="divide-y divide-kumo-line text-sm">
-          {receipts.map((r, i) => (
-            <li key={i} className="flex items-baseline gap-3 px-4 py-2">
-              <span className="w-12 shrink-0 font-mono text-xs text-kumo-strong">{r.kind}</span>
-              <ReceiptDetail kind={r.kind} payload={r.payload} />
-            </li>
-          ))}
+          {receipts.map((r, i) => {
+            const active = selected === r;
+            return (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(r)}
+                  className={`grid w-full grid-cols-[5rem_minmax(0,1fr)_6rem] items-baseline gap-3 px-4 py-2 text-left hover:bg-kumo-base ${active ? "bg-kumo-base" : ""}`}
+                >
+                  <span className="font-mono text-xs text-kumo-strong">{r.kind}</span>
+                  <ReceiptDetail kind={r.kind} payload={r.payload} />
+                  <span className="text-right font-mono text-[11px] text-kumo-muted">{formatTime(r.ts)}</span>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       )}
+    </div>
+  );
+}
+
+function Inspector({ receipt, artifact }: { receipt: Receipt | null; artifact: Artifact | null }) {
+  if (!receipt && artifact) {
+    return (
+      <Panel title="Artifact" subtitle={artifact.path}>
+        <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-kumo-base p-4 font-mono text-xs leading-5 text-kumo-default">{artifact.content}</pre>
+      </Panel>
+    );
+  }
+  if (!receipt) {
+    return (
+      <Panel title="Inspector" subtitle="hidden until you click a receipt">
+        <p className="text-sm text-kumo-strong">Receipt metadata and artifact content appear here.</p>
+      </Panel>
+    );
+  }
+  return (
+    <Panel title="Receipt metadata" subtitle={`${receipt.kind} · ${new Date(receipt.ts).toLocaleString()}`}>
+      <pre className="max-h-80 overflow-auto rounded-md bg-kumo-base p-4 font-mono text-xs leading-5 text-kumo-default">{JSON.stringify(receipt.payload, null, 2)}</pre>
+    </Panel>
+  );
+}
+
+function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-kumo-line bg-kumo-elevated p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">{title}</div>
+        <div className="truncate font-mono text-xs text-kumo-muted" title={subtitle}>{subtitle}</div>
+      </div>
+      <div className="mt-3">{children}</div>
     </div>
   );
 }
@@ -191,32 +318,20 @@ function ReceiptDetail({ kind, payload }: { kind: string; payload: Record<string
     case "read":
       return <span className="font-mono text-xs text-kumo-default">{String(payload.path)}</span>;
     case "ask":
-      return (
-        <span className="font-mono text-xs text-kumo-default">
-          → {String(payload.who)} · "{truncate(String(payload.message), 60)}"
-        </span>
-      );
+      return <span className="font-mono text-xs text-kumo-default">→ {String(payload.who)} · "{truncate(String(payload.message), 68)}"</span>;
     case "submit":
-      return (
-        <span className="font-mono text-xs text-kumo-default">
-          {String(payload.objective)} = {String(payload.decision ?? "(no decision)")}
-        </span>
-      );
+      return <span className="font-mono text-xs text-kumo-default">{String(payload.objective)} = {String(payload.decision ?? "(no decision)")}</span>;
     case "write":
-      return (
-        <span className="font-mono text-xs text-kumo-default">
-          {String(payload.path)} · {String(payload.bytes)}b
-        </span>
-      );
+      return <span className="font-mono text-xs text-kumo-default">{String(payload.path)} · {String(payload.bytes)}b</span>;
     case "grade":
-      return (
-        <span className="font-mono text-xs text-kumo-default">
-          {String(payload.score)}/{String(payload.max)}
-        </span>
-      );
+      return <span className="font-mono text-xs text-kumo-default">{String(payload.score)}/{String(payload.max)}</span>;
     default:
       return <span className="text-xs text-kumo-strong">{JSON.stringify(payload)}</span>;
   }
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function truncate(s: string, n: number): string {

@@ -6,7 +6,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
 try {
   await page.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: /Cloudbox dogfoods itself/i }).waitFor();
+  await page.getByRole("heading", { name: /Demo/i }).waitFor();
   await page.getByRole("button", { name: /Run agent/i }).click();
   await page.getByText(/README\.md/).first().waitFor();
   await page.getByText(/docs\/quickstart\.md/).first().waitFor();
