@@ -35,8 +35,8 @@ const runs = [
 ---
 
 <Base>
-  <main class="mx-auto max-w-6xl px-4 py-14 md:py-20">
-    <section class="grid gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+  <main class="mx-auto max-w-6xl overflow-x-clip px-4 py-14 md:py-20">
+    <section class="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
       <div class="max-w-2xl">
         <div class="mb-6 inline-grid size-16 place-items-center rounded-2xl border border-orange-200 bg-orange-50" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none">
@@ -73,7 +73,7 @@ const runs = [
       </div>
       </div>
 
-      <div class="rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-4 shadow-sm">
+      <div class="min-w-0 rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-4 shadow-sm">
         <div class="mb-3 flex items-center justify-between gap-3">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-kumo-muted">Example run</p>
@@ -82,7 +82,7 @@ const runs = [
           <span class="rounded-full border border-kumo-line px-2.5 py-1 font-mono text-xs text-kumo-strong">one repo</span>
         </div>
         <div
-          class="overflow-hidden rounded-xl border border-kumo-line p-4 [&>pre]:m-0 [&>pre]:max-h-[42rem] [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
+          class="max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-kumo-line p-4 [-webkit-overflow-scrolling:touch] [&>pre]:m-0 [&>pre]:max-h-[42rem] [&>pre]:w-max [&>pre]:min-w-full [&>pre]:overflow-visible [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
           style="background-color:#24292e"
         >
           <Code code={primaryCode} lang="ts" theme="github-dark" />
@@ -149,7 +149,7 @@ const runs = [
           </p>
         </div>
         <div
-          class="overflow-hidden rounded-xl border border-kumo-line p-4 [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
+          class="max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-kumo-line p-4 [-webkit-overflow-scrolling:touch] [&>pre]:m-0 [&>pre]:w-max [&>pre]:min-w-full [&>pre]:overflow-visible [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
           style="background-color:#24292e"
         >
           <Code code={`tools: {
