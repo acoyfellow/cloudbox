@@ -3,6 +3,7 @@ import {
   D1Database,
   R2Bucket,
   Worker,
+  Assets,
 } from "alchemy/cloudflare";
 import { CloudflareStateStore, FileSystemStateStore } from "alchemy/state";
 
@@ -40,7 +41,6 @@ const ARTIFACTS = await R2Bucket("cloudbox-artifacts", {
 export const WORKER = await Worker("cloudbox-worker", {
   name: workerName,
   entrypoint: "./web/dist/_worker.js/index.js",
-  assets: "./web/dist",
   adopt: true,
   compatibilityDate: "2026-04-30",
   compatibilityFlags: ["nodejs_compat"],
@@ -48,6 +48,7 @@ export const WORKER = await Worker("cloudbox-worker", {
   url: true,
   domains: isProd ? ["cloudbox.coey.dev"] : [],
   bindings: {
+    ASSETS: await Assets({ path: "./web/dist" }),
     DB,
     ARTIFACTS,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
