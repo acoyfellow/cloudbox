@@ -22,7 +22,7 @@ describe("container runner client", () => {
       artifact: "HANDOFF.md",
     });
 
-    expect(calls[0].url).toBe("http://cloudbox-runner/run");
+    expect(calls[0].url).toBe("http://container/run");
     expect(calls[0].body.repo).toBe("https://github.com/acoyfellow/cloudbox");
     expect(result.ok).toBe(true);
     expect(result.artifact?.path).toBe("HANDOFF.md");
