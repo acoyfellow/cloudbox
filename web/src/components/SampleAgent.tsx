@@ -32,6 +32,15 @@ export default function SampleAgent({ spec }: Props) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runSpec, setRunSpec] = useState<ComputerSpec | null>(null);
+  const [rawRun, setRawRun] = useState(`{
+  "repo": "https://github.com/acoyfellow/cloudbox",
+  "commands": ["echo cloudbox-container-ok > HANDOFF.md"],
+  "verify": ["test -f HANDOFF.md"],
+  "artifact": "HANDOFF.md",
+  "timeoutMs": 30000
+}`);
+  const [rawResult, setRawResult] = useState<unknown>(null);
+  const [rawRunning, setRawRunning] = useState(false);
 
   useEffect(() => {
     const nextRunSpec = { ...spec, runId: `browser-${Date.now()}-${Math.random().toString(16).slice(2)}` };
@@ -85,6 +94,30 @@ export default function SampleAgent({ spec }: Props) {
     return res.receipts;
   }
 
+  async function runRaw() {
+    setRawRunning(true);
+    setRawResult(null);
+    setError(null);
+    try {
+      const parsed = JSON.parse(rawRun);
+      const response = await fetch("/api/runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const body = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      setRawResult(body);
+      if (!response.ok) {
+        const failure = body as { detail?: string; error?: string };
+        setError(failure.detail ?? failure.error ?? `Run failed: ${response.status}`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRawRunning(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-8">
       <aside className="flex flex-col gap-4">
@@ -107,6 +140,7 @@ export default function SampleAgent({ spec }: Props) {
         ) : null}
 
         {gradeResult ? <GradeCard result={gradeResult} /> : null}
+        <RawRunForm value={rawRun} result={rawResult} running={rawRunning} onChange={setRawRun} onRun={runRaw} />
       </aside>
 
       <section className="grid min-w-0 gap-4">
@@ -197,10 +231,52 @@ function RunSummary({
 
 function SummaryPill({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-lg border border-kumo-line bg-kumo-elevated p-3">
+    <div className="min-w-0 rounded-lg border border-kumo-line bg-kumo-elevated p-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">{label}</div>
-      <div className="mt-1 font-mono text-lg text-kumo-default">{value}</div>
-      <div className="truncate text-xs text-kumo-strong" title={sub}>{sub}</div>
+      <div className="mt-1 break-words font-mono text-lg text-kumo-default">{value}</div>
+      <div className="break-words text-xs leading-5 text-kumo-strong" title={sub}>{sub}</div>
+    </div>
+  );
+}
+
+function RawRunForm({
+  value,
+  result,
+  running,
+  onChange,
+  onRun,
+}: {
+  value: string;
+  result: unknown;
+  running: boolean;
+  onChange: (value: string) => void;
+  onRun: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-orange-950">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-orange-700">Raw repo run</div>
+          <p className="mt-1 text-xs leading-5 text-orange-900">Edit the full /api/runs payload for any public GitHub repo.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={running}
+          className="shrink-0 rounded-md bg-[#f38020] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+        >
+          {running ? "Running..." : "Run raw"}
+        </button>
+      </div>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        spellCheck={false}
+        className="mt-3 min-h-56 w-full resize-y rounded-md border border-orange-200 bg-white/80 p-3 font-mono text-xs leading-5 text-orange-950 outline-none focus:border-orange-400"
+      />
+      {result ? (
+        <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md bg-white/80 p-3 font-mono text-xs leading-5 text-orange-950">{JSON.stringify(result, null, 2)}</pre>
+      ) : null}
     </div>
   );
 }
@@ -242,7 +318,7 @@ function ReceiptsLog({
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-kumo-line bg-kumo-elevated">
-      <header className="flex items-center justify-between border-b border-kumo-line px-4 py-2.5">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-kumo-line px-4 py-2.5">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-kumo-strong">Receipts</div>
           <div className="text-xs text-kumo-muted">click a row for metadata</div>
@@ -262,11 +338,11 @@ function ReceiptsLog({
                 <button
                   type="button"
                   onClick={() => onSelect(r)}
-                  className={`grid w-full grid-cols-[5rem_minmax(0,1fr)_6rem] items-baseline gap-3 px-4 py-2 text-left hover:bg-kumo-base ${active ? "bg-kumo-base" : ""}`}
+                  className={`grid w-full grid-cols-1 gap-1 px-4 py-2 text-left hover:bg-kumo-base sm:grid-cols-[5rem_minmax(0,1fr)_6rem] sm:items-baseline sm:gap-3 ${active ? "bg-kumo-base" : ""}`}
                 >
-                  <span className="font-mono text-xs text-kumo-strong">{r.kind}</span>
+                  <span className="break-words font-mono text-xs text-kumo-strong">{r.kind}</span>
                   <ReceiptDetail kind={r.kind} payload={r.payload} />
-                  <span className="text-right font-mono text-[11px] text-kumo-muted">{formatTime(r.ts)}</span>
+                  <span className="font-mono text-[11px] text-kumo-muted sm:text-right">{formatTime(r.ts)}</span>
                 </button>
               </li>
             );
@@ -285,16 +361,12 @@ function Inspector({ receipt, artifact }: { receipt: Receipt | null; artifact: A
       </Panel>
     );
   }
-  if (!receipt) {
-    return (
-      <Panel title="Inspector" subtitle="hidden until you click a receipt">
-        <p className="text-sm text-kumo-strong">Receipt metadata and artifact content appear here.</p>
-      </Panel>
-    );
-  }
+  if (!receipt) return null;
+  const metadata = JSON.stringify(receipt.payload ?? {}, null, 2);
+  if (!metadata || metadata === "{}") return null;
   return (
     <Panel title="Receipt metadata" subtitle={`${receipt.kind} · ${new Date(receipt.ts).toLocaleString()}`}>
-      <pre className="max-h-80 overflow-auto rounded-md bg-kumo-base p-4 font-mono text-xs leading-5 text-kumo-default">{JSON.stringify(receipt.payload, null, 2)}</pre>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-kumo-base p-4 font-mono text-xs leading-5 text-kumo-default">{metadata}</pre>
     </Panel>
   );
 }
@@ -314,19 +386,19 @@ function Panel({ title, subtitle, children }: { title: string; subtitle: string;
 function ReceiptDetail({ kind, payload }: { kind: string; payload: Record<string, unknown> }) {
   switch (kind) {
     case "init":
-      return <span className="text-xs text-kumo-strong">materialized · {String(payload.fileCount)} files</span>;
+      return <span className="break-words text-xs text-kumo-strong">materialized · {String(payload.fileCount)} files</span>;
     case "read":
-      return <span className="font-mono text-xs text-kumo-default">{String(payload.path)}</span>;
+      return <span className="break-all font-mono text-xs text-kumo-default">{String(payload.path)}</span>;
     case "ask":
-      return <span className="font-mono text-xs text-kumo-default">→ {String(payload.who)} · "{truncate(String(payload.message), 68)}"</span>;
+      return <span className="break-words font-mono text-xs text-kumo-default">→ {String(payload.who)} · "{truncate(String(payload.message), 68)}"</span>;
     case "submit":
-      return <span className="font-mono text-xs text-kumo-default">{String(payload.objective)} = {String(payload.decision ?? "(no decision)")}</span>;
+      return <span className="break-words font-mono text-xs text-kumo-default">{String(payload.objective)} = {String(payload.decision ?? "(no decision)")}</span>;
     case "write":
-      return <span className="font-mono text-xs text-kumo-default">{String(payload.path)} · {String(payload.bytes)}b</span>;
+      return <span className="break-all font-mono text-xs text-kumo-default">{String(payload.path)} · {String(payload.bytes)}b</span>;
     case "grade":
-      return <span className="font-mono text-xs text-kumo-default">{String(payload.score)}/{String(payload.max)}</span>;
+      return <span className="break-words font-mono text-xs text-kumo-default">{String(payload.score)}/{String(payload.max)}</span>;
     default:
-      return <span className="text-xs text-kumo-strong">{JSON.stringify(payload)}</span>;
+      return <span className="break-words text-xs text-kumo-strong">{JSON.stringify(payload)}</span>;
   }
 }
 
