@@ -4,25 +4,26 @@ export const prerender = true;
 import { Code } from "astro:components";
 import Base from "@/layouts/Base.astro";
 
-const primaryCode = `import { agentBrowser, cloudbox } from "cloudbox";
-
-const run = await cloudbox.run({
-  computer: "cloud",
-  repo: "https://github.com/acoyfellow/cloudbox",
-  bug: "cloudbox.coey.dev returns 1101 instead of the homepage",
-  tools: { browser: agentBrowser() },
-  reproduce: "open the site and confirm the Worker error",
-  fix: "make the homepage return 200",
-  verify: ["bun run build", "bun run test", "open the site again"],
-  artifact: "HANDOFF.md",
-});
+const primaryCode = `const run = await fetch("https://cloudbox.coey.dev/runs", {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    authorization: "Bearer $CLOUDBOX_API_TOKEN",
+  },
+  body: JSON.stringify({
+    repo: "https://github.com/acoyfellow/cloudbox",
+    commands: ["pnpm install --ignore-scripts"],
+    verify: ["pnpm run build", "pnpm run test"],
+    artifact: "HANDOFF.md",
+  }),
+}).then((res) => res.json());
 
 console.log(run);
 
-// status: passed
-// proof: reproduced 1101 → patched repo → verified HTTP 200
+// ok: true
+// receipts: clone → install → build → test → diff
 // artifact: HANDOFF.md
-// grade: 5/5`;
+// runner: Cloudflare Container`;
 
 const runs = [
   ["Upgrade packages", "build · test · browser check"],
@@ -37,6 +38,13 @@ const runs = [
   <main class="mx-auto max-w-6xl px-4 py-14 md:py-20">
     <section class="grid gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
       <div class="max-w-2xl">
+        <div class="mb-6 inline-grid size-16 place-items-center rounded-2xl border border-orange-200 bg-orange-50" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="4" fill="#F6821F" />
+            <path d="M8 8h8v8H8z" fill="#FBAD41" />
+            <path d="M10 10h6v6h-6z" fill="#FFF7E8" opacity="0.82" />
+          </svg>
+        </div>
         <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Deploy on your Cloudflare account</p>
         <h1 class="mt-4 text-4xl font-semibold tracking-tight text-kumo-default sm:text-5xl md:text-6xl">
           Agent workspaces with proof, running on Cloudflare.
@@ -48,43 +56,21 @@ const runs = [
         <div class="mt-8 flex flex-wrap gap-3">
           <a
             href="/demo"
-            class="inline-flex items-center gap-2 rounded-md bg-kumo-contrast px-4 py-2 text-sm font-medium text-kumo-base hover:opacity-90"
+            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
           >
-            Try the demo
+            Try demo
+          </a>
+          <a
+            href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox"
+            class="inline-flex items-center gap-2 rounded-md bg-[#f38020] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#faae40]"
+          >
+            Deploy to Cloudflare
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
               <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path>
             </svg>
           </a>
-          <a
-            href="/docs"
-            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
-          >
-            Read docs
-          </a>
-          <a
-            href="https://github.com/acoyfellow/cloudbox"
-            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
-          >
-            GitHub
-          </a>
-          <a
-            href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox"
-            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
-          >
-            Deploy to Cloudflare
-          </a>
         </div>
-        <p class="mt-5 max-w-xl text-sm leading-6 text-kumo-strong">
-          Inspired by synthetic-computer research; built for real repo work, tight feedback loops,
-          and human-readable proof.
-        </p>
-        <a
-          href="https://arxiv.org/abs/2604.28181"
-          class="mt-2 inline-flex text-sm font-medium text-kumo-default underline decoration-kumo-line underline-offset-4 hover:text-kumo-strong"
-        >
-          Research lineage →
-        </a>
-        </div>
+      </div>
       </div>
 
       <div class="rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-4 shadow-sm">
@@ -101,6 +87,12 @@ const runs = [
         >
           <Code code={primaryCode} lang="ts" theme="github-dark" />
         </div>
+        <a
+          href="/docs"
+          class="mt-4 inline-flex text-sm font-medium text-kumo-default underline decoration-kumo-line underline-offset-4 hover:text-kumo-strong"
+        >
+          Read the API and deployment docs →
+        </a>
       </div>
     </section>
 
@@ -111,7 +103,7 @@ const runs = [
           <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">Any repo task that needs proof.</h2>
         </div>
         <p class="max-w-md text-sm leading-6 text-kumo-strong">
-          Same API shape: one repo, one clean computer, explicit checks, one artifact.
+          Same API shape: one repo, one Cloudflare Container runner, explicit checks, one artifact.
         </p>
       </div>
 
@@ -122,6 +114,27 @@ const runs = [
             <p class="text-sm text-kumo-strong">{detail}</p>
           </div>
         ))}
+      </div>
+    </section>
+
+    <section class="mt-10 grid gap-3 md:grid-cols-3">
+      <div class="rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
+        <h2 class="font-semibold text-kumo-default">What is a computer?</h2>
+        <p class="mt-2 text-sm leading-6 text-kumo-strong">
+          A real Cloudflare Container runner for shell commands, plus Durable Object/R2 state for files, artifacts, receipts, and grading.
+        </p>
+      </div>
+      <div class="rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
+        <h2 class="font-semibold text-kumo-default">Cloud or local?</h2>
+        <p class="mt-2 text-sm leading-6 text-kumo-strong">
+          Cloud runs use the Container runner deployed with your Worker. Local runs use the same shape for fast iteration and tests.
+        </p>
+      </div>
+      <div class="rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
+        <h2 class="font-semibold text-kumo-default">How long does it take?</h2>
+        <p class="mt-2 text-sm leading-6 text-kumo-strong">
+          The demo runs in seconds. Real repo runs take as long as clone/install/test takes; Cloudbox records each command so slow work is still inspectable.
+        </p>
       </div>
     </section>
 
@@ -147,5 +160,15 @@ const runs = [
         </div>
       </div>
     </section>
+
+    <footer class="mt-10 border-t border-kumo-line pt-6 text-sm leading-6 text-kumo-strong">
+      <a
+        href="https://arxiv.org/abs/2604.28181"
+        class="font-medium text-kumo-default underline decoration-kumo-line underline-offset-4 hover:text-kumo-strong"
+      >
+        Inspired by computer-use research
+      </a>
+      <span>; built for real repo work on Cloudflare Containers, tight feedback loops, and human-readable proof.</span>
+    </footer>
   </main>
 </Base>

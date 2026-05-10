@@ -1,4 +1,4 @@
-// Cloudbox — turn a spec into a running synthetic computer.
+// Cloudbox — turn a spec into a running agent computer.
 //
 // One Durable Object per materialized computer:
 //   - Owns the receipt log (every protocol call is recorded)

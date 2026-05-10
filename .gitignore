@@ -9,3 +9,5 @@ docs/dist/
 
 web/.astro/
 web/dist/
+
+.context/

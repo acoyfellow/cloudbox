@@ -16,7 +16,7 @@ const sections = [
     items: [
       { href: "/docs", label: "Overview" },
       { href: "/docs/quickstart", label: "Quickstart" },
-      { href: "/docs/demo", label: "Demo demo" },
+      { href: "/docs/demo", label: "Demo" },
     ],
   },
   {
@@ -34,6 +34,11 @@ const sections = [
     ],
   },
 ];
+
+const flatItems = sections.flatMap((section) => section.items);
+const currentIndex = flatItems.findIndex((item) => pathname === item.href);
+const previous = currentIndex > 0 ? flatItems[currentIndex - 1] : null;
+const next = currentIndex >= 0 && currentIndex < flatItems.length - 1 ? flatItems[currentIndex + 1] : null;
 ---
 
 <Base title={`Cloudbox · ${title}`} description={description}>
@@ -83,6 +88,31 @@ const sections = [
       <div class="cloudbox-prose mt-8 space-y-6 text-base leading-7 text-kumo-strong">
         <slot />
       </div>
+
+      <nav class="mt-12 grid gap-3 border-t border-kumo-line pt-6 sm:grid-cols-2" aria-label="Docs pagination">
+        {previous ? (
+          <a href={previous.href} class="rounded-lg border border-kumo-line bg-kumo-base p-4 text-sm hover:bg-kumo-elevated">
+            <div class="text-xs font-semibold uppercase tracking-wide text-kumo-muted">Previous</div>
+            <div class="mt-1 font-medium text-kumo-default">← {previous.label}</div>
+          </a>
+        ) : (
+          <a href="/demo" class="rounded-lg border border-kumo-line bg-kumo-base p-4 text-sm hover:bg-kumo-elevated">
+            <div class="text-xs font-semibold uppercase tracking-wide text-kumo-muted">Start</div>
+            <div class="mt-1 font-medium text-kumo-default">Try the demo →</div>
+          </a>
+        )}
+        {next ? (
+          <a href={next.href} class="rounded-lg border border-kumo-line bg-kumo-base p-4 text-right text-sm hover:bg-kumo-elevated">
+            <div class="text-xs font-semibold uppercase tracking-wide text-kumo-muted">Next</div>
+            <div class="mt-1 font-medium text-kumo-default">{next.label} →</div>
+          </a>
+        ) : (
+          <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox" class="rounded-lg border border-orange-200 bg-orange-50 p-4 text-right text-sm hover:bg-orange-100">
+            <div class="text-xs font-semibold uppercase tracking-wide text-orange-700">Deploy</div>
+            <div class="mt-1 font-medium text-orange-900">Deploy to Cloudflare →</div>
+          </a>
+        )}
+      </nav>
     </article>
   </div>
 </Base>

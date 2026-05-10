@@ -2,41 +2,51 @@
 layout: "@/layouts/Doc.astro"
 title: "Architecture"
 eyebrow: "Cloudflare-native"
-description: "Cloudbox is a Worker, one Durable Object per synthetic workspace, R2-backed bytes, and receipt-first grading."
+description: "Cloudbox is a Worker, one Container runner for real repo execution, one Durable Object per workspace, R2-backed bytes, and receipt-first grading."
 ---
 
 ## Shape
 
+Cloudbox has one important idea: **one agent run gets one real Cloudflare computer**.
+
 ```txt
-agent / browser / script
-        │
-        │ HTTP tools
-        ▼
-┌──────────────────────────────────────────────────────────┐
-│ Cloudbox Worker                                          │
-│  /                         docs + home                   │
-│  /demo                     demo run                   │
-│  /computers                materialize a spec            │
-│  /brief                    draft a spec from a sentence  │
-│  /c/:id/:action ───────────────┐                         │
-└────────────────────────────────┼─────────────────────────┘
-                                 │
-                                 ▼
-                    ┌────────────────────────┐
-                    │ ComputerDO             │
-                    │ one per workspace      │
-                    │                        │
-                    │ state: spec, id        │
-                    │ files: path metadata   │
-                    │ receipts: append-only  │
-                    └───────────┬────────────┘
-                                │
-                                ▼
-                          ┌──────────┐
-                          │   R2     │
-                          │ bytes    │
-                          └──────────┘
+Your agent
+   │
+   │ POST /runs { repo, commands, verify, artifact }
+   ▼
+Cloudbox Worker
+   │
+   ├─ records run intent and exposes the API/docs
+   │
+   └──────────────▶ Cloudflare Container runner
+                         │
+                         ├─ git clone repo
+                         ├─ run commands
+                         ├─ run verification
+                         ├─ collect artifact
+                         └─ return receipts + diff
 ```
+
+The long-lived control plane is the Worker. The real execution backend is a Cloudflare Container running Linux tools like `git`, `node`, `bun`, and `pnpm`.
+
+<div class="not-prose rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
+  <div class="grid gap-3 sm:grid-cols-3">
+    <div class="rounded-lg border border-kumo-line bg-kumo-base p-3">
+      <div class="font-semibold text-kumo-default">Worker</div>
+      <p class="mt-1 text-sm leading-6 text-kumo-strong">The API and docs site. It accepts run requests from agents, browsers, scripts, and CI.</p>
+    </div>
+    <div class="rounded-lg border border-orange-200 bg-orange-50 p-3">
+      <div class="font-semibold text-orange-950">Container runner</div>
+      <p class="mt-1 text-sm leading-6 text-orange-900">The real computer. It clones repos, runs commands, verifies work, and returns logs, diff, and artifacts.</p>
+    </div>
+    <div class="rounded-lg border border-kumo-line bg-kumo-base p-3">
+      <div class="font-semibold text-kumo-default">DO + R2</div>
+      <p class="mt-1 text-sm leading-6 text-kumo-strong">Durable workspace state, receipts, file bytes, and artifacts for inspectable proof.</p>
+    </div>
+  </div>
+</div>
+
+D1, Queues, Workers AI, Cron, and Access fit around this core; they are not the execution primitive.
 
 ## Receipt-first design
 

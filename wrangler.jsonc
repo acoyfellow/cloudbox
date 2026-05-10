@@ -39,6 +39,10 @@
       {
         "name": "CLOUDBOX_COMPUTER",
         "class_name": "ComputerDO"
+      },
+      {
+        "name": "CLOUDBOX_RUNNER",
+        "class_name": "CloudboxRunner"
       }
     ]
   },
@@ -48,6 +52,22 @@
       "new_sqlite_classes": [
         "ComputerDO"
       ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "CloudboxRunner"
+      ]
+    }
+  ],
+  "containers": [
+    {
+      "name": "cloudbox-runner",
+      "class_name": "CloudboxRunner",
+      "image": "./runner/Dockerfile",
+      "image_build_context": "./runner",
+      "instance_type": "lite",
+      "max_instances": 2
     }
   ]
 }

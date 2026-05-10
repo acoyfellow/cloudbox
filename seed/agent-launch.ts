@@ -1,4 +1,4 @@
-// Dogfood scenario used by /demo: Cloudbox evaluates an agent helping ship Cloudbox.
+// Demo scenario used by /demo: Cloudbox evaluates an agent helping ship Cloudbox.
 
 import { defineComputer } from "../src/spec.ts";
 

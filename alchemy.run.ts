@@ -5,6 +5,7 @@ import {
   Worker,
   Assets,
   DurableObjectNamespace,
+  Container,
 } from "alchemy/cloudflare";
 import { CloudflareStateStore, FileSystemStateStore } from "alchemy/state";
 
@@ -44,6 +45,18 @@ const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
   sqlite: true,
 });
 
+const CLOUDBOX_RUNNER = await Container("cloudbox-runner", {
+  name: isProd ? "cloudbox-runner" : `${app.stage}-cloudbox-runner`,
+  className: "CloudboxRunner",
+  build: {
+    context: "./runner",
+    dockerfile: "Dockerfile",
+  },
+  instanceType: "lite",
+  maxInstances: 2,
+  adopt: true,
+});
+
 export const WORKER = await Worker("cloudbox-worker", {
   name: workerName,
   entrypoint: "./web/dist/_worker.js/index.js",
@@ -58,6 +71,7 @@ export const WORKER = await Worker("cloudbox-worker", {
     DB,
     ARTIFACTS,
     CLOUDBOX_COMPUTER,
+    CLOUDBOX_RUNNER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
     ...(process.env.CLOUDBOX_API_TOKEN
       ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }

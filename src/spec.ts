@@ -1,10 +1,10 @@
-// Cloudbox — typed spec for a synthetic computer.
+// Cloudbox — typed spec for a real agent computer.
 //
 // A spec is structured data. Author it by hand, generate it from a brief,
 // or load it from JSON. Pass it to materialize() to turn it into a real
 // environment an agent can operate against.
 //
-// The shape mirrors the Microsoft "Synthetic Computers at Scale" paper:
+// The shape is informed by computer-use research:
 //   profile         §2.1  identity & habits
 //   filesystem      §2.2  the populated work environment
 //   collaborators   §3.1  people the agent must coordinate with
@@ -49,7 +49,7 @@ export type Profile = {
 // ---------- Filesystem ----------
 
 /**
- * A file on the synthetic computer.
+ * A file on the agent computer.
  *
  * `kind` is an open vocabulary — common values listed below — so the agent
  * (and the artifact generator) can branch on type. New kinds are fine; they

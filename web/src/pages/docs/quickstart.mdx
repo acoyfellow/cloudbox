@@ -7,12 +7,54 @@ description: "Run Cloudbox locally and watch an agent demo the Cloudbox launch-r
 
 ## Goal
 
+Get Cloudbox into your Cloudflare account, then hand your agent a clean computer with receipts and artifacts.
+
+## 1. Deploy to Cloudflare
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox)
+
+This is the shortest path for production: Cloudbox deploys as Cloudflare infrastructure you own. The one-click flow is the public funnel; GitHub Actions deployment is the verified path for this repo today.
+
+## 2. Copy the agent prompt
+
+<button type="button" class="rounded-md bg-kumo-contrast px-4 py-2 text-sm font-medium text-kumo-base" data-copy-prompt="cloudbox">
+  Copy prompt
+</button>
+
+```txt
+You have access to Cloudbox at https://YOUR-CLOUDBOX.workers.dev.
+
+Use Cloudbox when repo work needs proof:
+- create a run with the repo, task, verification commands, and requested artifact
+- use the Cloudbox computer for files, shell, browser checks, and tools
+- record receipts for reads, writes, commands, questions, and submissions
+- verify the work with explicit commands
+- write the requested artifact, usually HANDOFF.md
+- return the Cloudbox run URL, artifact path, and final grade
+```
+
+<script is:inline>{`
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy-prompt='cloudbox']");
+    if (!button) return;
+    const prompt = "You have access to Cloudbox at https://YOUR-CLOUDBOX.workers.dev.\n\nUse Cloudbox when repo work needs proof:\n- create a run with the repo, task, verification commands, and requested artifact\n- use the Cloudbox computer for files, shell, browser checks, and tools\n- record receipts for reads, writes, commands, questions, and submissions\n- verify the work with explicit commands\n- write the requested artifact, usually HANDOFF.md\n- return the Cloudbox run URL, artifact path, and final grade";
+    await navigator.clipboard.writeText(prompt);
+    const previous = button.textContent;
+    button.textContent = "Copied";
+    setTimeout(() => {
+      button.textContent = previous;
+    }, 1400);
+  });
+`}</script>
+
+## 3. Manual walkthrough
+
 Get from clone to a graded agent run in under seven minutes.
 
 The local demo needs Bun. It does not need secrets for the constrained path.
 Cloudflare bindings are used by the Worker/DO runtime when you run or deploy the app.
 
-## 1. Clone and install
+### Clone and install
 
 ```sh
 git clone https://github.com/acoyfellow/cloudbox
@@ -20,7 +62,7 @@ cd cloudbox
 bun install
 ```
 
-## 2. Run the app
+### Run the app
 
 ```sh
 bun run dev
@@ -28,7 +70,7 @@ bun run dev
 
 Open the URL the script prints and go to `/demo`.
 
-## 3. Run the demo demo
+### Run the demo
 
 Click **Run sample agent**.
 
@@ -44,7 +86,7 @@ The scripted agent performs the same shape of work I want from my real agents:
 
 The UI should show receipts streaming in and a final grade.
 
-## 4. Verify the repo
+### Verify the repo
 
 ```sh
 bun run check
@@ -52,7 +94,7 @@ bun run check
 
 This builds the docs/app, typechecks, and runs tests.
 
-## 5. Drive the protocol yourself
+### Drive the protocol yourself
 
 Materialize a spec:
 

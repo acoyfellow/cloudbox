@@ -64,6 +64,7 @@ The Cloudflare API token needs access to:
 Account read
 Workers Scripts edit
 Workers Tail read
+Workers Containers read/write
 D1 edit
 R2 edit
 Secrets Store edit
@@ -74,6 +75,7 @@ Cloudbox production currently uses these resource names:
 
 ```txt
 Worker: cloudbox
+Container runner: cloudbox-runner
 D1: cloudbox-prod
 R2: cloudbox-artifacts
 State store Worker: alchemy-state-store
@@ -83,23 +85,18 @@ Then run the `check` workflow on `main`.
 
 ## What Cloudbox does
 
-A run gives an agent a workspace, tools, and a goal. Cloudbox records the trail.
+A run gives an agent a real Cloudflare Container, a repo, commands, verification, and an artifact. Cloudbox records the trail.
 
-```ts
-import { agentBrowser, cloudbox } from "cloudbox";
-
-const run = await cloudbox.run({
-  computer: "cloud",
-  repo: "https://github.com/acoyfellow/cloudbox",
-  bug: "cloudbox.coey.dev returns 1101 instead of the homepage",
-  tools: { browser: agentBrowser() },
-  reproduce: "open the site and confirm the Worker error",
-  fix: "make the homepage return 200",
-  verify: ["bun run build", "bun run test", "open the site again"],
-  artifact: "HANDOFF.md",
-});
-
-console.log(run);
+```sh
+curl -s https://cloudbox.coey.dev/runs \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{
+    "repo": "https://github.com/acoyfellow/cloudbox",
+    "commands": ["pnpm install --ignore-scripts"],
+    "verify": ["pnpm run build", "pnpm run test"],
+    "artifact": "HANDOFF.md"
+  }'
 ```
 
 A finished run should include:
@@ -134,42 +131,35 @@ bun run demo:browser
 
 Use `reproduce`, `fix`, and `verify` so the result proves both failure and repair.
 
-```ts
-await cloudbox.run({
-  computer: "cloud",
-  repo,
-  bug: "checkout page returns 500",
-  reproduce: "npm test -- checkout",
-  fix: "make checkout return 200",
-  verify: ["npm test -- checkout", "npm run build"],
-  artifact: "HANDOFF.md",
-});
+```json
+{
+  "repo": "https://github.com/you/app",
+  "commands": ["npm test -- checkout || true"],
+  "verify": ["npm test -- checkout", "npm run build"],
+  "artifact": "HANDOFF.md"
+}
 ```
 
 ### Upgrade dependencies
 
-```ts
-await cloudbox.run({
-  computer: "cloud",
-  repo,
-  task: "upgrade framework packages",
-  change: "update dependencies",
-  verify: ["npm run build", "npm test"],
-  artifact: "UPGRADE.md",
-});
+```json
+{
+  "repo": "https://github.com/you/app",
+  "commands": ["pnpm up"],
+  "verify": ["pnpm run build", "pnpm test"],
+  "artifact": "UPGRADE.md"
+}
 ```
 
 ### Investigate flakes
 
-```ts
-await cloudbox.run({
-  computer: "cloud",
-  repo,
-  task: "find why browser tests flake",
-  reproduce: "npm run test:browser -- --repeat 5",
-  verify: ["npm run test:browser -- --repeat 5"],
-  artifact: "FLAKE_REPORT.md",
-});
+```json
+{
+  "repo": "https://github.com/you/app",
+  "commands": ["npm run test:browser -- --repeat 5 || true"],
+  "verify": ["npm run test:browser -- --repeat 5"],
+  "artifact": "FLAKE_REPORT.md"
+}
 ```
 
 ## Tools
@@ -191,9 +181,7 @@ Every tool call should become part of the receipt trail.
 Cloudbox has two layers:
 
 1. **Control plane** — Worker routes, Durable Objects, R2 artifacts, D1 indexes, receipt grading.
-2. **Computer** — the place an agent reads files, runs commands, calls tools, writes artifacts, and verifies work.
-
-The current repo contains the Cloudflare control plane, demo workspace, local proof-run slice, and deployment path. The cloud computer adapter is the next major implementation step.
+2. **Computer** — a Cloudflare Container runner that clones repos, runs commands, verifies work, captures diff, and returns artifacts.
 
 ## API reference
 
@@ -210,20 +198,19 @@ GET  /c/:id/receipts
 GET  /c/:id/grade
 ```
 
-Run API shape under active development:
+Real repo run API:
+
+```sh
+POST /runs
+```
 
 ```ts
 type RunInput = {
-  computer: "cloud" | "local";
-  repo: string;
-  bug?: string;
-  task?: string;
-  reproduce?: string | string[];
-  fix?: string;
-  change?: string;
-  verify: string[];
-  artifact: string;
-  tools?: Record<string, unknown>;
+  repo: string;          // public GitHub HTTPS repo
+  commands?: string[];   // setup/change/reproduce commands
+  verify?: string[];     // verification commands
+  artifact?: string;     // file to return, e.g. HANDOFF.md
+  timeoutMs?: number;
 };
 ```
 
@@ -239,11 +226,11 @@ bun run demo:browser
 
 ## Status
 
-Cloudbox is early. The deployed app, demo, receipts, artifacts, grading, and deploy path work. The local `cloudbox.run()` proof slice can reproduce a failing fixture, patch it, verify it, and return a structured result. The hosted remote-computer runner is next.
+Cloudbox is early. The deployed app, demo, receipts, artifacts, grading, deploy path, and Cloudflare Container runner path are in the repo. Real repo runs go through `POST /runs` and execute in the container runner.
 
 ## Research lineage
 
-Cloudbox is inspired by synthetic-computer research, but the product direction is real repo work for agents and humans: short feedback loops, visible receipts, and proof you can inspect.
+Cloudbox is inspired by computer-use research, but the product is real repo work for agents and humans: short feedback loops, visible receipts, Cloudflare Container execution, and proof you can inspect.
 
 Paper: https://arxiv.org/abs/2604.28181
 

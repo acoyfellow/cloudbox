@@ -1,7 +1,7 @@
 {
   "name": "cloudbox",
   "version": "0.0.1",
-  "description": "Cloudflare-native synthetic workspaces for agents: files, collaborators, artifacts, receipts, and grading.",
+  "description": "Real Cloudflare workspaces for agents: repo runs, files, artifacts, receipts, and grading.",
   "private": true,
   "type": "module",
   "scripts": {
