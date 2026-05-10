@@ -14,9 +14,13 @@ export type ListedFile = {
 };
 
 export async function materialize(spec: ComputerSpec): Promise<Materialized> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (spec.name === "agent-launch-readiness" && spec.runId?.startsWith("browser-")) {
+    headers["x-cloudbox-demo"] = "1";
+  }
   const r = await fetch("/computers", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify(spec),
   });
   if (!r.ok) throw new Error(`materialize failed: ${r.status}`);
