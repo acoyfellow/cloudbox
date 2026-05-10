@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cloudbox",
   "main": "web/dist/_worker.js/index.js",
-  "compatibility_date": "2026-04-30",
+  "compatibility_date": "2026-01-14",
   "compatibility_flags": [
     "nodejs_compat"
   ],
