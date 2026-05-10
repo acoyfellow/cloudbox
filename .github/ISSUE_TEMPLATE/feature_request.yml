@@ -1,0 +1,15 @@
+name: Feature request
+about: Suggest an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What agent work should Cloudbox make trustworthy?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal

@@ -1,0 +1,22 @@
+name: Deploy failure
+about: Report a problem deploying Cloudbox to your Cloudflare account
+labels: [deploy, cloudflare]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Paste the failing GitHub Actions or deploy output.
+    validations:
+      required: true
+  - type: textarea
+    id: account
+    attributes:
+      label: Cloudflare setup
+      description: Which resources were created? Do not paste secrets.
+      placeholder: Account type, custom domain yes/no, D1/R2/Worker names
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: shell

@@ -1,8 +1,8 @@
 // React island for /demo.
 //
-// Materializes the seeded dogfood spec on mount, then exposes a button that
-// runs the same Cloudbox agent runner used by scripts/dogfood.mjs. The runner
-// chooses tool calls from the spec and every call is recorded as a receipt.
+// Materializes the seeded demo spec on mount, then exposes a button that
+// runs the same Cloudbox agent runner used by the headless demo script. The
+// runner chooses tool calls from the spec and every call is recorded as a receipt.
 
 import { useEffect, useMemo, useState } from "react";
 import {

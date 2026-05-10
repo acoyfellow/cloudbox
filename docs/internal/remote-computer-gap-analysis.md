@@ -39,7 +39,7 @@ Implemented:
 - Cloudbox app deployed and serving static web + API.
 - Homepage now positions remote-computer bugfix proof loop.
 - Existing synthetic ComputerSpec / DO / receipts / grading primitives.
-- Browser dogfood/demo against synthetic spec.
+- Browser demo/demo against synthetic spec.
 - `src/run.ts` green-slice API test implementation for earlier repo/reviewer shape.
 - Tests prove placeholder API, not real remote computer.
 
@@ -111,7 +111,7 @@ interface RemoteComputer {
 ```
 
 Adapters:
-1. LocalComputer: temp dir + child_process, for tests and immediate dogfood.
+1. LocalComputer: temp dir + child_process, for tests and immediate demo.
 2. RemoteComputer: calls internal remote-computer service later.
 3. FakeComputer: deterministic unit tests.
 
@@ -144,7 +144,7 @@ Browser/demo tests:
 - homepage CTA opens run page.
 - run page shows commit, reproduced failure, patch, verified fix, artifact.
 
-## Minimal real dogfood milestone
+## Minimal real demo milestone
 
 No LLM at first. Deterministic scripted fixer is acceptable for proving plumbing.
 

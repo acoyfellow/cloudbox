@@ -4,261 +4,148 @@ export const prerender = true;
 import { Code } from "astro:components";
 import Base from "@/layouts/Base.astro";
 
-const examples = [
-  {
-    label: "Bugfix",
-    cta: "Run this bugfix",
-    title: "Bug in, verified patch out.",
-    code: `import { cloudbox, unsurf } from "cloudbox";
+const primaryCode = `import { agentBrowser, cloudbox } from "cloudbox";
 
 const run = await cloudbox.run({
   computer: "cloud",
   repo: "https://github.com/acoyfellow/cloudbox",
   bug: "cloudbox.coey.dev returns 1101 instead of the homepage",
-  tools: { browser: unsurf() },
+  tools: { browser: agentBrowser() },
   reproduce: "open the site and confirm the Worker error",
   fix: "make the homepage return 200",
   verify: ["bun run build", "bun run test", "open the site again"],
   artifact: "HANDOFF.md",
 });
 
-console.log(run);`,
-    response: `{
-  id: "run_7f3a",
-  status: "passed",
-  repo: { commit: "f0a0d46..." },
-  tools: ["shell", "files", "browser"],
-  proof: {
-    reproduced: [{ tool: "browser", observed: "1101" }],
-    verified: [
-      { cmd: "bun run build", exit: 0 },
-      { cmd: "bun run test", exit: 0 },
-      { tool: "browser", observed: "HTTP 200" }
-    ],
-    patch: "alchemy.run.ts +2 -1",
-    artifact: "HANDOFF.md",
-    grade: { score: 5, max: 5 }
-  }
-}`,
-  },
-  {
-    label: "Upgrade",
-    cta: "Run this upgrade",
-    title: "Upgrade without guessing.",
-    code: `import { cloudbox } from "cloudbox";
+console.log(run);
 
-const run = await cloudbox.run({
-  computer: "cloud",
-  repo: "https://github.com/acoyfellow/cloudbox",
-  task: "upgrade Astro and prove the app still works",
-  change: "update Astro and adapter packages",
-  verify: ["bun run build", "bun run test", "bun run dogfood:browser"],
-  artifact: "UPGRADE.md",
-});
+// status: passed
+// proof: reproduced 1101 → patched repo → verified HTTP 200
+// artifact: HANDOFF.md
+// grade: 5/5`;
 
-console.log(run);`,
-    response: `{
-  id: "run_91bc",
-  status: "passed",
-  repo: { commit: "8c12aa4..." },
-  proof: {
-    verified: [
-      { cmd: "bun run build", exit: 0 },
-      { cmd: "bun run test", exit: 0 },
-      { cmd: "bun run dogfood:browser", exit: 0 }
-    ],
-    patch: "package.json +3 -3, pnpm-lock.yaml",
-    artifact: "UPGRADE.md",
-    grade: { score: 4, max: 4 }
-  }
-}`,
-  },
-  {
-    label: "Flake",
-    cta: "Investigate this flake",
-    title: "Catch nondeterminism before it catches you.",
-    code: `import { cloudbox } from "cloudbox";
-
-const run = await cloudbox.run({
-  computer: "cloud",
-  repo: "https://github.com/acoyfellow/cloudbox",
-  task: "find why browser dogfood flakes",
-  reproduce: "bun run dogfood:browser --repeat 5",
-  fix: "remove the flake or document the real blocker",
-  verify: ["bun run dogfood:browser --repeat 5"],
-  artifact: "FLAKE_REPORT.md",
-});
-
-console.log(run);`,
-    response: `{
-  id: "run_c420",
-  status: "passed",
-  proof: {
-    reproduced: [{ cmd: "bun run dogfood:browser --repeat 5", exit: 1 }],
-    verified: [{ cmd: "bun run dogfood:browser --repeat 5", exit: 0 }],
-    patch: "scripts/browser-dogfood.mjs +12 -4",
-    artifact: "FLAKE_REPORT.md",
-    grade: { score: 4, max: 4 }
-  }
-}`,
-  },
-  {
-    label: "PR review",
-    cta: "Review this PR",
-    title: "Turn review into executable evidence.",
-    code: `import { cloudbox } from "cloudbox";
-
-const run = await cloudbox.run({
-  computer: "cloud",
-  repo: "https://github.com/acoyfellow/cloudbox",
-  task: "review the auth-token PR before merge",
-  checkout: "pull/42/head",
-  verify: ["bun run test", "bun run typecheck"],
-  artifact: "PR_REVIEW.md",
-});
-
-console.log(run);`,
-    response: `{
-  id: "run_d18e",
-  status: "failed",
-  proof: {
-    verified: [
-      { cmd: "bun run test", exit: 0 },
-      { cmd: "bun run typecheck", exit: 2, observed: "token can be undefined" }
-    ],
-    patch: null,
-    artifact: "PR_REVIEW.md",
-    grade: { score: 2, max: 4 }
-  }
-}`,
-  },
-  {
-    label: "Migration",
-    cta: "Prove this migration",
-    title: "Know the migration works before prod does.",
-    code: `import { cloudbox } from "cloudbox";
-
-const run = await cloudbox.run({
-  computer: "cloud",
-  repo: "https://github.com/acoyfellow/cloudbox",
-  task: "verify the D1 migration is safe",
-  change: "apply migrations to a clean database snapshot",
-  verify: ["bun run test", "bun run dogfood:fast"],
-  artifact: "MIGRATION_PROOF.md",
-});
-
-console.log(run);`,
-    response: `{
-  id: "run_52aa",
-  status: "passed",
-  proof: {
-    verified: [
-      { cmd: "bun run test", exit: 0 },
-      { cmd: "bun run dogfood:fast", exit: 0 }
-    ],
-    patch: "migrations/0002_add_runs.sql",
-    artifact: "MIGRATION_PROOF.md",
-    grade: { score: 4, max: 4 }
-  }
-}`,
-  },
-  {
-    label: "Release",
-    cta: "Prepare this release",
-    title: "A release handoff with receipts.",
-    code: `import { cloudbox } from "cloudbox";
-
-const run = await cloudbox.run({
-  computer: "cloud",
-  repo: "https://github.com/acoyfellow/cloudbox",
-  task: "prepare the release handoff",
-  verify: ["bun run build", "bun run test", "git diff --check"],
-  artifact: "RELEASE_HANDOFF.md",
-});
-
-console.log(run);`,
-    response: `{
-  id: "run_a6fb",
-  status: "passed",
-  proof: {
-    verified: [
-      { cmd: "bun run build", exit: 0 },
-      { cmd: "bun run test", exit: 0 },
-      { cmd: "git diff --check", exit: 0 }
-    ],
-    artifact: "RELEASE_HANDOFF.md",
-    grade: { score: 3, max: 3 }
-  }
-}`,
-  },
+const runs = [
+  ["Upgrade packages", "build · test · browser check"],
+  ["Find flakes", "repeat until stable"],
+  ["Review PRs", "checkout · test · report"],
+  ["Prove migrations", "apply · verify · handoff"],
+  ["Prepare releases", "final checks · release note"],
 ];
 ---
 
 <Base>
-  <section class="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-5xl flex-col justify-center gap-8 px-4 py-12 md:py-16">
-    <div class="max-w-3xl">
-      <h1 class="text-3xl font-semibold tracking-tight text-kumo-default sm:text-4xl md:text-5xl">
-        Give an agent real work. Get back proof you can trust.
-      </h1>
-      <p class="mt-5 max-w-2xl text-base leading-7 text-kumo-strong sm:text-lg sm:leading-8">
-        Cloudbox gives your agent a clean remote computer, clones one repo, runs the task,
-        verifies the result, and hands you the patch, artifact, commands, and receipts.
-      </p>
-    </div>
+  <main class="mx-auto max-w-6xl px-4 py-14 md:py-20">
+    <section class="grid gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+      <div class="max-w-2xl">
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Deploy on your Cloudflare account</p>
+        <h1 class="mt-4 text-4xl font-semibold tracking-tight text-kumo-default sm:text-5xl md:text-6xl">
+          Agent workspaces with proof, running on Cloudflare.
+        </h1>
+        <p class="mt-6 text-base leading-7 text-kumo-strong sm:text-lg sm:leading-8">
+          Cloudbox is infrastructure you deploy yourself: a Worker, Durable Objects, R2 artifacts,
+          and receipt-backed runs for your agents. Try the demo, read the docs, then deploy it to your account.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a
+            href="/demo"
+            class="inline-flex items-center gap-2 rounded-md bg-kumo-contrast px-4 py-2 text-sm font-medium text-kumo-base hover:opacity-90"
+          >
+            Try the demo
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
+              <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path>
+            </svg>
+          </a>
+          <a
+            href="/docs"
+            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
+          >
+            Read docs
+          </a>
+          <a
+            href="https://github.com/acoyfellow/cloudbox"
+            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
+          >
+            GitHub
+          </a>
+          <a
+            href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox"
+            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
+          >
+            Deploy to Cloudflare
+          </a>
+        </div>
+        <p class="mt-5 max-w-xl text-sm leading-6 text-kumo-strong">
+          Inspired by synthetic-computer research; built for real repo work, tight feedback loops,
+          and human-readable proof.
+        </p>
+        <a
+          href="https://arxiv.org/abs/2604.28181"
+          class="mt-2 inline-flex text-sm font-medium text-kumo-default underline decoration-kumo-line underline-offset-4 hover:text-kumo-strong"
+        >
+          Research lineage →
+        </a>
+        </div>
+      </div>
 
-    <div class="flex items-center justify-between gap-4">
-      <a
-        href="/demo"
-        class="inline-flex items-center gap-2 rounded-md bg-kumo-contrast px-4 py-2 text-sm font-medium text-kumo-base hover:opacity-90"
-      >
-        Run one
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
-          <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path>
-        </svg>
-      </a>
-      <div class="select-none text-sm text-kumo-muted" aria-hidden="true">← one repo at a time →</div>
-    </div>
-
-    <div class="flex snap-x gap-5 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {examples.map((item) => (
-        <article class="min-w-full snap-start rounded-2xl border border-kumo-line bg-kumo-elevated/20 p-4 md:p-5">
-          <div class="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-kumo-muted">{item.label}</p>
-              <h2 class="mt-1 text-lg font-semibold text-kumo-default">{item.title}</h2>
-            </div>
-            <a href="/demo" class="hidden rounded-md border border-kumo-line px-3 py-1.5 text-sm font-medium text-kumo-default hover:bg-kumo-elevated sm:inline-flex">
-              {item.cta}
-            </a>
+      <div class="rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-4 shadow-sm">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-kumo-muted">Example run</p>
+            <h2 class="mt-1 text-lg font-semibold text-kumo-default">Bug in, verified patch out.</h2>
           </div>
+          <span class="rounded-full border border-kumo-line px-2.5 py-1 font-mono text-xs text-kumo-strong">one repo</span>
+        </div>
+        <div
+          class="overflow-hidden rounded-xl border border-kumo-line p-4 [&>pre]:m-0 [&>pre]:max-h-[42rem] [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
+          style="background-color:#24292e"
+        >
+          <Code code={primaryCode} lang="ts" theme="github-dark" />
+        </div>
+      </div>
+    </section>
 
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div
-              class="overflow-hidden rounded-xl border border-kumo-line p-4 [&>pre]:m-0 [&>pre]:max-h-[28rem] [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
-              style="background-color:#24292e"
-            >
-              <Code code={item.code} lang="ts" theme="github-dark" />
-            </div>
+    <section class="mt-14 border-t border-kumo-line pt-10">
+      <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Not just bug reports</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">Any repo task that needs proof.</h2>
+        </div>
+        <p class="max-w-md text-sm leading-6 text-kumo-strong">
+          Same API shape: one repo, one clean computer, explicit checks, one artifact.
+        </p>
+      </div>
 
-            <div>
-              <div class="mb-3">
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-kumo-muted">Run response</p>
-                <h3 class="mt-1 text-base font-semibold text-kumo-default">Full result, not just prose.</h3>
-              </div>
-              <div
-                class="overflow-hidden rounded-xl border border-kumo-line p-4 [&>pre]:m-0 [&>pre]:max-h-[24rem] [&>pre]:overflow-auto [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
-                style="background-color:#24292e"
-              >
-                <Code code={item.response} lang="json" theme="github-dark" />
-              </div>
-            </div>
+      <div class="mt-6 divide-y divide-kumo-line rounded-xl border border-kumo-line bg-kumo-elevated/20">
+        {runs.map(([title, detail]) => (
+          <div class="grid gap-1 px-4 py-3 sm:grid-cols-[14rem_minmax(0,1fr)] sm:items-baseline">
+            <h3 class="font-medium text-kumo-default">{title}</h3>
+            <p class="text-sm text-kumo-strong">{detail}</p>
           </div>
-        </article>
-      ))}
-    </div>
+        ))}
+      </div>
+    </section>
 
-    <p class="max-w-2xl text-sm leading-6 text-kumo-strong">
-      Want more tools? Pass them in. Browser automation, deploy checks, internal connectors, recorders, and custom CLIs become tools the computer can use, and every call becomes part of the proof.
-    </p>
-  </section>
+    <section class="mt-10 rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-5">
+      <div class="grid gap-5 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Tools are explicit</p>
+          <h2 class="mt-2 text-xl font-semibold text-kumo-default">Shell and files are built in. Add the rest.</h2>
+          <p class="mt-3 text-sm leading-6 text-kumo-strong">
+            Browser automation, deploy checks, internal connectors, recorders, and custom CLIs become tools the computer can use.
+            Every call is recorded as part of the proof.
+          </p>
+        </div>
+        <div
+          class="overflow-hidden rounded-xl border border-kumo-line p-4 [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
+          style="background-color:#24292e"
+        >
+          <Code code={`tools: {
+  browser: agentBrowser(),
+  deploy: cloudflare(),
+  jira: mcp("jira"),
+}`} lang="ts" theme="github-dark" />
+        </div>
+      </div>
+    </section>
+  </main>
 </Base>

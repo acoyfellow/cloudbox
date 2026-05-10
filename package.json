@@ -14,10 +14,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "node scripts/e2e.mjs",
-    "check": "bun run build && bun run typecheck && bun run test && bun run dogfood:fast",
-    "dogfood": "bun run build && node scripts/dogfood.mjs",
-    "dogfood:fast": "node scripts/dogfood.mjs",
-    "dogfood:browser": "bun run build && node scripts/browser-dogfood.mjs",
+    "check": "bun run build && bun run typecheck && bun run test && bun run demo:fast",
+    "demo": "bun run build && node scripts/demo.mjs",
+    "demo:fast": "node scripts/demo.mjs",
+    "demo:browser": "bun run build && node scripts/browser-demo.mjs",
     "ci": "bun run check"
   },
   "workspaces": [

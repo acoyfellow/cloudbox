@@ -15,7 +15,7 @@ agent / browser / script
 ┌──────────────────────────────────────────────────────────┐
 │ Cloudbox Worker                                          │
 │  /                         docs + home                   │
-│  /demo                     dogfood run                   │
+│  /demo                     demo run                   │
 │  /computers                materialize a spec            │
 │  /brief                    draft a spec from a sentence  │
 │  /c/:id/:action ───────────────┐                         │
@@ -60,7 +60,7 @@ The grader is intentionally structural in v0. It checks facts like:
 - asked this person and not that person
 - submitted this objective
 
-That keeps the dogfood loop deterministic and cheap.
+That keeps the demo loop deterministic and cheap.
 
 ## Durable Object per workspace
 
@@ -97,7 +97,7 @@ fit naturally around it:
 - **Workflows / Cron Triggers** for cleanup and long-running sweeps
 - **Access** for private agent workspaces
 
-## Dogfood path
+## Demo path
 
 The demo is not separate from the product. It is a Cloudbox spec about Cloudbox:
 
