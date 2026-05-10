@@ -18,10 +18,10 @@ export default defineConfig({
     platformProxy: { enabled: true },
     workerEntryPoint: {
       path: "src/worker.ts",
-      namedExports: ["ComputerDO"],
+      namedExports: ["ComputerDO", "CloudboxRunner"],
     },
   }),
-  integrations: [react(), mdx()],
+  integrations: [react({ jsxImportSource: "react" }), mdx()],
   vite: {
     plugins: [tailwindcss()],
     resolve: {
