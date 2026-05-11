@@ -53,5 +53,7 @@ jobs:
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           CLOUDBOX_D1_DATABASE_ID: ${{ secrets.CLOUDBOX_D1_DATABASE_ID }}
+          CLOUDBOX_RUNNER_RESOURCE_ID: cloudbox-runner-reset-20260511
+          CLOUDBOX_RUNNER_NAME: cloudbox-runner
         run: bun run alchemy:deploy
         timeout-minutes: 10
