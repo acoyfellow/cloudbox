@@ -1,81 +1,57 @@
 ---
 layout: "@/layouts/Doc.astro"
 title: "Demo"
-eyebrow: "For my agents"
-description: "The demo asks an agent to review Cloudbox itself and produce a launch-readiness artifact."
+eyebrow: "Proof run"
+description: "The demo runs a public GitHub repo in a Cloudflare Container and returns receipts, runner proof, and an artifact."
 ---
 
 ## Why this demo exists
 
-Cloudbox is for my agents. The first demo should therefore be an agent doing
-useful work on Cloudbox, not a fake task from another domain.
-
-The demo is constrained on purpose. It proves the loop:
+Cloudbox should prove real work, not describe it. The demo exercises the hosted repo-run path:
 
 ```txt
-spec -> workspace -> agent actions -> receipts -> artifact -> grade
+repo -> CloudboxRunner DO -> Cloudflare Container -> commands -> verify -> artifact + receipts
 ```
 
-## Scenario
-
-The seeded spec is `seed/agent-launch.ts`.
-
-The agent is a staff agent-systems engineer deciding whether Cloudbox is ready
-to share. The workspace contains:
-
-- `README.md`
-- `docs/quickstart.md`
-- `docs/architecture.md`
-- `package.json`
-
-The collaborators are:
-
-- `owner` — direct product owner
-- `skeptic` — release reviewer focused on overclaims and missing checks
-
-The objective is:
-
-- `launch-readiness` — submit a share/no-share decision and produce
-  `artifacts/launch-note.md`
-
-## Rubric
-
-The agent gets points for behavior I care about:
-
-1. read positioning before architecture detail
-2. read the quickstart
-3. ask the skeptical reviewer before launch
-4. write a durable launch note artifact
-5. submit the launch-readiness decision
-
-No hidden magic. If the receipt is not there, the point is not awarded.
+It is intentionally constrained because it is public. The hosted demo accepts public GitHub repos and a small allow-list of safe commands. Deploy your own Cloudbox for real private or privileged agent work.
 
 ## What to look for
 
-On `/demo`, click **Run sample agent** and watch the receipts:
+On `/demo`, click **Run in Cloudbox**. A successful run should show:
 
-```txt
-init
-read README.md
-read docs/quickstart.md
-read docs/architecture.md
-ask skeptic
-write artifacts/launch-note.md
-submit launch-readiness = share
-grade 8/8
+1. **Runner** — container lifecycle proof, including readiness time and attempt count
+2. **Clone** — a fresh checkout of the repo
+3. **Run** — the command your agent asked for
+4. **Verify** — explicit checks before the result counts
+5. **Artifact** — one file returned for human inspection
+
+The raw JSON includes two proof layers:
+
+- `runnerReceipts` — computer lifecycle events (`runner.container.start`, `runner.container.ready`, `runner.response`)
+- `receipts` — repo work events (`clone`, `command`, `verify`, `diff`)
+
+## Causal proof
+
+The default demo command writes a unique artifact:
+
+```sh
+echo cloudbox-container-ok > HANDOFF.md
+test -f HANDOFF.md
 ```
 
-That visible trail is the contract. A more capable future agent can replace the
-scripted one, but the workspace and rubric stay the same.
+The artifact content must match what the command wrote. That is the basic contract: command causes file, verify checks it, Cloudbox returns the artifact and receipts.
 
 ## How to adapt it
 
-Create a new seed in `seed/` with your own:
+Use the same `/api/runs` shape from any agent:
 
-- files the agent should inspect
-- collaborators it should consult
-- objective it should submit
-- artifact it should produce
-- receipt-level rubric
+```json
+{
+  "repo": "https://github.com/you/app",
+  "commands": ["pnpm install --ignore-scripts", "pnpm run build"],
+  "verify": ["pnpm test"],
+  "artifact": "HANDOFF.md"
+}
+```
 
-Then pass that spec into the same `SampleAgent` UI or drive it over HTTP.
+For richer file/workspace/grading flows, materialize a `ComputerSpec` with `/api/computers` and drive `/api/c/:id/*`.

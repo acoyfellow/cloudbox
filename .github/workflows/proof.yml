@@ -1,0 +1,40 @@
+name: proof
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: npm install -g pnpm@10.20.0
+      - run: pnpm install --no-frozen-lockfile --ignore-scripts
+      - name: Launch readiness
+        run: node scripts/proof-launch-readiness.mjs
+      - name: Runner readiness
+        run: node scripts/proof-runner-readiness.mjs
+        env:
+          CLOUDBOX_E2E_URL: https://cloudbox.coey.dev
+          CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
+      - name: CI smoke
+        run: node scripts/proof-ci-smoke.mjs
+        env:
+          CLOUDBOX_E2E_URL: https://cloudbox.coey.dev
+          CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloudbox-proof
+          path: artifacts/*.md

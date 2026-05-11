@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 type Tool = { name: string };
-export function unsurf(): Tool {
+export function agentBrowser(): Tool {
   return { name: "browser" };
 }
 

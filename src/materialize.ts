@@ -20,7 +20,7 @@ export type MaterializeEnv = {
 export type MaterializedComputer = {
   /** Stable hash of the spec. Same spec → same id, every time. */
   id: string;
-  /** Base URL prefix for the protocol. e.g. "/c/abc123" */
+  /** Base URL prefix for the protocol. e.g. "/api/c/abc123" */
   baseUrl: string;
 };
 
@@ -44,7 +44,7 @@ export async function materialize(
     throw new Error(`materialize failed: ${response.status} ${await response.text()}`);
   }
 
-  return { id, baseUrl: `/c/${id}` };
+  return { id, baseUrl: `/api/c/${id}` };
 }
 
 /**

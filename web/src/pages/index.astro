@@ -4,33 +4,46 @@ export const prerender = true;
 import { Code } from "astro:components";
 import Base from "@/layouts/Base.astro";
 
-const primaryCode = `const run = await fetch("https://cloudbox.coey.dev/runs", {
-  method: "POST",
-  headers: {
-    "content-type": "application/json",
-    authorization: "Bearer $CLOUDBOX_API_TOKEN",
-  },
-  body: JSON.stringify({
-    repo: "https://github.com/acoyfellow/cloudbox",
-    commands: ["pnpm install --ignore-scripts"],
-    verify: ["pnpm run build", "pnpm run test"],
-    artifact: "HANDOFF.md",
-  }),
-}).then((res) => res.json());
+const primaryCode = `import { generateText } from "ai";
+import { createCloudbox } from "cloudbox/client";
 
-console.log(run);
+const cloudbox = createCloudbox({ token: process.env.CLOUDBOX_API_TOKEN });
 
-// ok: true
-// receipts: clone → install → build → test → diff
-// artifact: HANDOFF.md
-// runner: Cloudflare Container`;
+// 1. Boot a fresh computer with the repo already cloned.
+const box = await cloudbox.boot({
+  repo: "https://github.com/acoyfellow/cloudbox",
+});
+
+// 2. Your model decides by using tools that run in the box.
+await generateText({
+  model: yourModel,
+  tools: box.tools(["shell", "read", "write"]),
+  prompt: ` + "`" + `
+    grep for the demo empty state.
+    improve the copy.
+    run the tests.
+    write HANDOFF.md with what changed.
+  ` + "`" + `,
+});
+
+// 3. Cloudbox returns the human artifact and receipts.
+const proof = await box.submit("HANDOFF.md");
+console.log(proof.artifact.content);
+// receipts: grep → read → write → test → artifact`;
 
 const runs = [
-  ["Upgrade packages", "build · test · browser check"],
-  ["Find flakes", "repeat until stable"],
-  ["Review PRs", "checkout · test · report"],
-  ["Prove migrations", "apply · verify · handoff"],
-  ["Prepare releases", "final checks · release note"],
+  ["Clone", "Start from a fresh checkout every time.", "/docs/concepts"],
+  ["Boot", "Create a Cloudflare Container runner for the task.", "/docs/architecture"],
+  ["Run", "Use shell, files, browser, deploy, MCP, or custom tools.", "/docs/recipes/browser-agent"],
+  ["Verify", "Execute explicit checks before anything counts.", "/docs/recipes/proof-runs"],
+  ["Return", "Hand back one artifact plus receipts.", "/docs/api"],
+];
+
+const learnMore = [
+  ["Try the hosted demo", "Run a public GitHub repo and inspect the returned artifact and receipts.", "/demo"],
+  ["Bring your agent", "Use any model. Give it Cloudbox tools for repo work, and optionally a browser.", "/docs/recipes/bring-your-agent"],
+  ["Run it from CI", "Add the GitHub Actions smoke test and upload Cloudbox proof as an artifact.", "/docs/recipes/ci-cd"],
+  ["Deploy your own", "Create the Worker, Durable Objects, R2, D1, and Container runner in your account.", "/docs/deploy"],
 ];
 ---
 
@@ -38,13 +51,13 @@ const runs = [
   <main class="mx-auto max-w-6xl overflow-x-clip px-4 py-14 md:py-20">
     <section class="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
       <div class="max-w-2xl">
-        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Give your agent a fresh computer and a proof trail</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">For agent-run repo work.</p>
         <h1 class="mt-4 text-4xl font-semibold tracking-tight text-kumo-default sm:text-5xl md:text-6xl">
-          Agent workspaces with inspectable proof.
+          Fresh computers on Cloudflare.
         </h1>
         <p class="mt-6 text-base leading-7 text-kumo-strong sm:text-lg sm:leading-8">
-          Cloudbox is infrastructure you deploy yourself: a Worker, Durable Objects, R2 artifacts,
-          and receipt-backed runs for your agents. Try the demo, read the docs, then deploy it to your account.
+          Cloudbox gives agents a clean place to clone a repo, run commands, verify the result,
+          and return receipts plus one artifact for review.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
           <a
@@ -64,90 +77,54 @@ const runs = [
       </div>
 
       <div class="min-w-0 rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-4 shadow-sm">
-        <div class="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-kumo-muted">Example run</p>
-            <h2 class="mt-1 text-lg font-semibold text-kumo-default">Bug in, verified patch out.</h2>
-          </div>
-          <span class="rounded-full border border-kumo-line px-2.5 py-1 font-mono text-xs text-kumo-strong">one repo</span>
-        </div>
         <div
           class="max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-kumo-line p-4 [-webkit-overflow-scrolling:touch] [&>pre]:m-0 [&>pre]:max-h-[42rem] [&>pre]:w-max [&>pre]:min-w-full [&>pre]:overflow-visible [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
           style="background-color:#24292e"
         >
           <Code code={primaryCode} lang="ts" theme="github-dark" />
         </div>
-        <a
-          href="/docs"
-          class="mt-4 inline-flex text-sm font-medium text-kumo-default underline decoration-kumo-line underline-offset-4 hover:text-kumo-strong"
-        >
-          Read the API and deployment docs →
-        </a>
+        <p class="mt-4 text-sm leading-6 text-kumo-strong">
+          Your model runs wherever your agent runs. Cloudbox tools execute inside the fresh computer.
+          <a href="/docs/recipes/bring-your-agent" class="font-medium text-kumo-default underline decoration-kumo-line underline-offset-4 hover:text-kumo-strong">
+            Learn the agent pattern →
+          </a>
+        </p>
       </div>
     </section>
 
-    <section class="mt-14 border-t border-kumo-line pt-10">
-      <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+    <section class="mt-14 rounded-2xl border border-kumo-line bg-kumo-elevated/25 p-5 sm:p-6">
+      <div class="grid gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Not just bug reports</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">Any repo task that needs proof.</h2>
-        </div>
-        <p class="max-w-md text-sm leading-6 text-kumo-strong">
-          Same API shape: one repo, one Cloudflare Container runner, explicit checks, one artifact.
-        </p>
-      </div>
-
-      <div class="mt-6 divide-y divide-kumo-line rounded-xl border border-kumo-line bg-kumo-elevated/20">
-        {runs.map(([title, detail]) => (
-          <div class="grid gap-1 px-4 py-3 sm:grid-cols-[14rem_minmax(0,1fr)] sm:items-baseline">
-            <h3 class="font-medium text-kumo-default">{title}</h3>
-            <p class="text-sm text-kumo-strong">{detail}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-
-    <section class="mt-10 grid gap-3 md:grid-cols-3">
-      <div class="rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
-        <h2 class="font-semibold text-kumo-default">What is a computer?</h2>
-        <p class="mt-2 text-sm leading-6 text-kumo-strong">
-          A real Cloudflare Container runner for shell commands, plus Durable Object/R2 state for files, artifacts, receipts, and grading.
-        </p>
-      </div>
-      <div class="rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
-        <h2 class="font-semibold text-kumo-default">Cloud or local?</h2>
-        <p class="mt-2 text-sm leading-6 text-kumo-strong">
-          Cloud runs use the Container runner deployed with your Worker. Local runs use the same shape for fast iteration and tests.
-        </p>
-      </div>
-      <div class="rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
-        <h2 class="font-semibold text-kumo-default">How long does it take?</h2>
-        <p class="mt-2 text-sm leading-6 text-kumo-strong">
-          The demo runs in seconds. Real repo runs take as long as clone/install/test takes; Cloudbox records each command so slow work is still inspectable.
-        </p>
-      </div>
-    </section>
-
-    <section class="mt-10 rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-5">
-      <div class="grid gap-5 md:grid-cols-[0.8fr_1.2fr] md:items-center">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Tools are explicit</p>
-          <h2 class="mt-2 text-xl font-semibold text-kumo-default">Shell and files are built in. Add the rest.</h2>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">How runs work</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">Cloudbox turns a structured plan into a verified artifact.</h2>
           <p class="mt-3 text-sm leading-6 text-kumo-strong">
-            Browser automation, deploy checks, internal connectors, recorders, and custom CLIs become tools the computer can use.
-            Every call is recorded as part of the proof.
+            Cloudbox makes agent work inspectable by forcing it through the same lifecycle: clean checkout, real Container, explicit tool calls, verification, and one returned artifact.
           </p>
         </div>
-        <div
-          class="max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-kumo-line p-4 [-webkit-overflow-scrolling:touch] [&>pre]:m-0 [&>pre]:w-max [&>pre]:min-w-full [&>pre]:overflow-visible [&>pre]:rounded-none [&>pre]:border-0 [&>pre]:bg-transparent [&>pre]:p-0 [&>pre]:text-xs [&>pre]:leading-5"
-          style="background-color:#24292e"
-        >
-          <Code code={`tools: {
-  browser: agentBrowser(),
-  deploy: cloudflare(),
-  jira: mcp("jira"),
-}`} lang="ts" theme="github-dark" />
+
+        <div class="divide-y divide-kumo-line rounded-xl border border-kumo-line bg-kumo-bg/60">
+          {runs.map(([title, detail, href]) => (
+            <a href={href} class="grid gap-1 px-4 py-3 transition-colors hover:bg-kumo-elevated sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-baseline">
+              <h3 class="font-medium text-kumo-default">{title}</h3>
+              <p class="text-sm text-kumo-strong">{detail} <span class="text-kumo-muted">Learn more →</span></p>
+            </a>
+          ))}
         </div>
+      </div>
+    </section>
+
+    <section class="mt-10">
+      <div class="mb-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Learn next</p>
+        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">Pick the path that matches how you want to use it.</h2>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {learnMore.map(([title, detail, href]) => (
+          <a href={href} class="rounded-xl border border-kumo-line bg-kumo-base p-4 transition-colors hover:bg-kumo-elevated">
+            <h3 class="font-semibold text-kumo-default">{title}</h3>
+            <p class="mt-2 text-sm leading-6 text-kumo-strong">{detail}</p>
+          </a>
+        ))}
       </div>
     </section>
 

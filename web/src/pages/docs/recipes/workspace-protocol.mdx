@@ -1,0 +1,56 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Workspace protocol"
+eyebrow: "Recipe"
+description: "Use ComputerSpec workspaces when your agent needs files, collaborators, submissions, receipts, and grading."
+---
+
+## When to use it
+
+Use `/api/runs` for repo execution. Use the workspace protocol when your agent needs a durable task world:
+
+- seeded files
+- collaborators to ask
+- writes and submissions
+- receipt-level grading
+- deterministic fixtures for agent evals
+
+## Materialize a computer
+
+```sh
+curl -X POST https://YOUR-CLOUDBOX.workers.dev/api/computers \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d @spec.json
+```
+
+The response gives an `id` and `baseUrl`:
+
+```json
+{ "id": "cb_abc123", "baseUrl": "/api/c/cb_abc123" }
+```
+
+## Drive it
+
+```sh
+curl https://YOUR-CLOUDBOX.workers.dev/api/c/$ID/list
+curl "https://YOUR-CLOUDBOX.workers.dev/api/c/$ID/read?path=README.md"
+
+curl -X POST https://YOUR-CLOUDBOX.workers.dev/api/c/$ID/ask \
+  -H "content-type: application/json" \
+  -d '{"who":"skeptic","message":"What am I missing?"}'
+
+curl -X POST https://YOUR-CLOUDBOX.workers.dev/api/c/$ID/write \
+  -H "content-type: application/json" \
+  -d '{"path":"artifacts/handoff.md","content":"ready"}'
+
+curl -X POST https://YOUR-CLOUDBOX.workers.dev/api/c/$ID/submit \
+  -H "content-type: application/json" \
+  -d '{"objective":"launch-readiness","decision":"share"}'
+
+curl https://YOUR-CLOUDBOX.workers.dev/api/c/$ID/grade
+```
+
+## Why it matters
+
+Every protocol call writes a receipt to the `ComputerDO`. The grader replays those receipts against the rubric. If the receipt is not there, the score is not awarded.

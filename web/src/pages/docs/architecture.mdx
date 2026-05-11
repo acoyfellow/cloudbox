@@ -12,22 +12,29 @@ Cloudbox has one important idea: **one agent run gets one real Cloudflare comput
 ```txt
 Your agent
    │
-   │ POST /runs { repo, commands, verify, artifact }
+   │ POST /api/runs { repo, commands, verify, artifact }
    ▼
-Cloudbox Worker
+Cloudbox Worker (Astro + Hono)
    │
-   ├─ records run intent and exposes the API/docs
+   ├─ auth, validation, API/docs
    │
-   └──────────────▶ Cloudflare Container runner
-                         │
-                         ├─ git clone repo
-                         ├─ run commands
-                         ├─ run verification
-                         ├─ collect artifact
-                         └─ return receipts + diff
+   ▼
+CloudboxRunner Durable Object
+   │
+   ├─ boots / reuses the container
+   ├─ records runnerReceipts (boot, request, error)
+   │
+   ▼
+Cloudflare Container (cloudbox-runner)
+   │
+   ├─ git clone repo
+   ├─ run commands
+   ├─ run verification
+   ├─ collect artifact
+   └─ return { receipts, artifact, diff }
 ```
 
-The long-lived control plane is the Worker. The real execution backend is a Cloudflare Container running Linux tools like `git`, `node`, `bun`, and `pnpm`.
+The long-lived control plane is the Worker. The real execution backend is a Cloudflare Container running Linux tools like `git`, `node`, `bun`, and `pnpm`. The `CloudboxRunner` DO owns container lifecycle so a hot container can serve repeated requests; lifecycle events ride back on every response as `runnerReceipts`.
 
 <div class="not-prose rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
   <div class="grid gap-3 sm:grid-cols-3">
@@ -36,12 +43,12 @@ The long-lived control plane is the Worker. The real execution backend is a Clou
       <p class="mt-1 text-sm leading-6 text-kumo-strong">The API and docs site. It accepts run requests from agents, browsers, scripts, and CI.</p>
     </div>
     <div class="rounded-lg border border-orange-200 bg-orange-50 p-3">
-      <div class="font-semibold text-orange-950">Container runner</div>
-      <p class="mt-1 text-sm leading-6 text-orange-900">The real computer. It clones repos, runs commands, verifies work, and returns logs, diff, and artifacts.</p>
+      <div class="font-semibold text-orange-950">CloudboxRunner + Container</div>
+      <p class="mt-1 text-sm leading-6 text-orange-900">A Durable Object fronts a Cloudflare Container. It clones repos, runs commands, verifies work, and returns logs, diff, artifacts, and runnerReceipts.</p>
     </div>
     <div class="rounded-lg border border-kumo-line bg-kumo-base p-3">
-      <div class="font-semibold text-kumo-default">DO + R2</div>
-      <p class="mt-1 text-sm leading-6 text-kumo-strong">Durable workspace state, receipts, file bytes, and artifacts for inspectable proof.</p>
+      <div class="font-semibold text-kumo-default">ComputerDO + R2</div>
+      <p class="mt-1 text-sm leading-6 text-kumo-strong">Per-workspace Durable Object holds spec, receipts, and file index. R2 holds artifact bytes for inspectable proof.</p>
     </div>
   </div>
 </div>

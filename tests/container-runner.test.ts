@@ -28,6 +28,16 @@ describe("container runner client", () => {
     expect(result.artifact?.path).toBe("HANDOFF.md");
   });
 
+  it("surfaces non-JSON runner failures", async () => {
+    const runner = { fetch: async () => new Response("nope", { status: 502 }) };
+    await expect(runInContainer(runner, { repo: "https://github.com/acoyfellow/cloudbox", verify: ["npm test"] })).rejects.toThrow("container run failed: 502");
+  });
+
+  it("surfaces runner HTTP failures", async () => {
+    const runner = { fetch: async () => new Response(JSON.stringify({ ok: false, receipts: [], error: "boom" }), { status: 500 }) };
+    await expect(runInContainer(runner, { repo: "https://github.com/acoyfellow/cloudbox", verify: ["npm test"] })).rejects.toThrow("container run failed: 500");
+  });
+
   it("fails loudly without the container binding", async () => {
     await expect(runInContainer(undefined, { repo: "https://github.com/acoyfellow/cloudbox", verify: ["npm test"] })).rejects.toThrow("container binding");
   });

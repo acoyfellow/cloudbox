@@ -1,0 +1,159 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Give your agent a browser"
+eyebrow: "Recipe"
+description: "Add a browser tool next to Cloudbox repo tools so the same agent can inspect a page, edit code, verify in Chrome, and return proof."
+---
+
+Cloudbox gives your agent a repo computer. A browser tool gives the same agent Chrome. The model runs in your agent loop; the tools do the work:
+
+```txt
+model decides -> Cloudbox tools edit repo
+              -> browser tool inspects page
+              -> Cloudbox returns HANDOFF.md + receipts
+```
+
+## Agent pattern
+
+```ts
+import { generateText } from "ai";
+import { createCloudbox } from "cloudbox/client";
+import { agentBrowser } from "agent-browser";
+
+const cloudbox = createCloudbox({ token: process.env.CLOUDBOX_API_TOKEN });
+
+const box = await cloudbox.boot({
+  repo: "https://github.com/acoyfellow/cloudbox",
+});
+
+const browser = await agentBrowser({
+  // Optional: reuse a Chrome profile when the browser needs login state.
+  profile: process.env.AGENT_BROWSER_PROFILE,
+});
+
+await generateText({
+  model: yourModel,
+  tools: {
+    ...box.tools(["shell", "read", "write"]),
+    ...browser.tools(),
+  },
+  prompt: `
+    Open the demo page in the browser.
+    Use grep/read to find the empty state source.
+    Edit the repo.
+    Run tests.
+    Reopen the page in the browser and verify the change.
+    Write HANDOFF.md with what changed and how you verified it.
+  `,
+});
+
+const proof = await box.submit("HANDOFF.md");
+console.log(proof.artifact.content);
+```
+
+The important boundary: the AI call is outside the browser and outside the Container. The model gets tool results back, then decides the next tool call. Cloudbox tool calls run in the repo computer; browser tool calls run in Chrome.
+
+## Minimal Chrome profile support
+
+With the `agent-browser` CLI, profiles are explicit:
+
+```sh
+agent-browser profiles
+agent-browser --profile Default open https://example.com
+```
+
+For a persistent automation profile:
+
+```sh
+agent-browser --profile ~/.cloudbox-browser open https://app.example.com/login
+# log in once
+agent-browser --profile ~/.cloudbox-browser open https://app.example.com/dashboard
+```
+
+Keep profile paths and exported auth state out of git. Browser profiles can contain cookies and tokens.
+
+## Smoke test this wiring
+
+Install the browser CLI once:
+
+```sh
+npm i -g agent-browser
+agent-browser install
+```
+
+Run the deterministic smoke:
+
+```sh
+CLOUDBOX_BROWSER_URL=https://cloudbox.coey.dev \
+AGENT_BROWSER_PROFILE=~/.cloudbox-browser \
+node scripts/browser-agent-smoke.mjs
+```
+
+The smoke opens `/demo`, snapshots the page, captures a screenshot, and writes:
+
+```txt
+artifacts/BROWSER_AGENT.md
+```
+
+This smoke does not call a model. It proves the browser side of the agent loop is available and can inspect the Cloudbox demo. Add your model call on top when you want the full edit-and-verify loop.
+
+## Record the browser as an artifact
+
+For UI work, do not rely on the model describing what it saw. Record the browser session and upload the video next to the Cloudbox proof.
+
+Cloudbox returns the repo-side artifact:
+
+```txt
+HANDOFF.md + runner receipts
+```
+
+The browser smoke returns the browser-side artifact:
+
+```txt
+BROWSER_AGENT_VIDEO.md + .webm recording + screenshot
+```
+
+Run the video smoke:
+
+```sh
+CLOUDBOX_BROWSER_URL=https://cloudbox.coey.dev \
+node scripts/browser-agent-video-smoke.mjs
+```
+
+It writes:
+
+```txt
+artifacts/BROWSER_AGENT_VIDEO.md
+artifacts/browser-agent-video/*.webm
+artifacts/browser-agent-video.png
+```
+
+The script passes only if it can open `/demo`, find the expected page text, close the browser cleanly, and produce a non-empty `.webm` file.
+
+## Upload the recording from GitHub Actions
+
+```yaml
+- name: Browser video smoke
+  run: node scripts/browser-agent-video-smoke.mjs
+  env:
+    CLOUDBOX_BROWSER_URL: https://cloudbox.coey.dev
+
+- name: Upload browser proof
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: browser-agent-proof
+    path: |
+      artifacts/BROWSER_AGENT_VIDEO.md
+      artifacts/browser-agent-video/*.webm
+      artifacts/browser-agent-video.png
+```
+
+For the full browser-agent workflow, upload both proof bundles:
+
+```txt
+Cloudbox proof: HANDOFF.md, runner receipts, work receipts
+Browser proof: .webm recording, screenshot, browser smoke markdown
+```
+
+That gives reviewers both sides: what changed in the repo and what the agent actually saw in Chrome.

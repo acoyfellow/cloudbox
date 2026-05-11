@@ -2,24 +2,27 @@
 layout: "@/layouts/Doc.astro"
 title: "API reference"
 eyebrow: "Reference"
-description: "The Cloudbox Worker exposes a small HTTP protocol. Every per-computer endpoint lives under /c/:id and writes a receipt to the computer's Durable Object."
+description: "The Cloudbox Worker exposes a small HTTP protocol. Repo runs go through /api/runs; per-workspace endpoints live under /api/c/:id and write receipts to the workspace Durable Object."
 ---
 
 ## At a glance
 
 ```
 GET    /api/health
-POST   /computers
-POST   /brief
-GET    /c/:id/list
-GET    /c/:id/read?path=...
-POST   /c/:id/write
-POST   /c/:id/ask
-POST   /c/:id/submit
-GET    /c/:id/grade
-GET    /c/:id/receipts
-GET    /c/:id/spec
+POST   /api/runs            # real repo run in the CloudboxRunner container
+POST   /api/computers       # materialize a ComputerSpec workspace
+POST   /api/brief
+GET    /api/c/:id/list
+GET    /api/c/:id/read?path=...
+POST   /api/c/:id/write
+POST   /api/c/:id/ask
+POST   /api/c/:id/submit
+GET    /api/c/:id/grade
+GET    /api/c/:id/receipts
+GET    /api/c/:id/spec
 ```
+
+When `CLOUDBOX_API_TOKEN` is set, authenticated endpoints require `Authorization: Bearer $CLOUDBOX_API_TOKEN` (or `x-cloudbox-token`).
 
 ## Health
 
@@ -28,13 +31,54 @@ curl http://localhost:8799/api/health
 # → { "ok": true, "name": "cloudbox" }
 ```
 
-## Materialize a computer
+## Run a real repo
+
+The runner surface. Cloudbox boots the `cloudbox-runner` Cloudflare Container, clones a public GitHub repo, executes `commands`, then `verify`, collects the requested artifact, and returns the trail.
 
 ```sh
-curl -X POST http://localhost:8799/computers \
+curl -X POST https://cloudbox.coey.dev/api/runs \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{
+    "repo": "https://github.com/acoyfellow/cloudbox",
+    "commands": ["pnpm install --ignore-scripts"],
+    "verify": ["pnpm run build", "pnpm run test"],
+    "artifact": "HANDOFF.md"
+  }'
+```
+
+Response shape:
+
+```ts
+type ContainerRunResult = {
+  runId: string;
+  ok: boolean;
+  receipts: ContainerRunReceipt[];      // clone, command, verify, diff steps
+  runnerReceipts: RunnerLifecycleEvent[]; // container boot / request / error
+  artifact?: { path: string; content: string } | null;
+  diff?: string;
+  error?: string;
+};
+```
+
+Each `ContainerRunReceipt` carries `cmd`, `code`, `signal`, `stdout`, `stderr`, `startedAt`, `finishedAt`. Non-zero verify exit codes set `ok: false` and return HTTP `422`.
+
+`runnerReceipts` are the computer proof layer. They show whether the `CloudboxRunner` Durable Object started or reused a Container, how many readiness attempts were needed, how long boot took, and when the runner responded. Typical events are `runner.container.start`, `runner.container.ready_attempt`, `runner.container.ready`, `runner.response`, and `runner.container.not_ready`.
+
+Recent runs are available when D1 is bound:
+
+```sh
+GET /api/runs/recent
+GET /api/runs/:runId
+```
+
+## Materialize a workspace
+
+```sh
+curl -X POST http://localhost:8799/api/computers \
   -H 'content-type: application/json' \
   -d @spec.json
-# → { "id": "cb_abc123…", "baseUrl": "/c/cb_abc123…" }
+# → { "id": "cb_abc123…", "baseUrl": "/api/c/cb_abc123…" }
 ```
 
 The `id` is a deterministic content hash of the spec. The same spec returns the same id every time — re-materializing is idempotent.
@@ -42,25 +86,25 @@ The `id` is a deterministic content hash of the spec. The same spec returns the 
 ## Brief → spec
 
 ```sh
-curl -X POST http://localhost:8799/brief \
+curl -X POST http://localhost:8799/api/brief \
   -H 'content-type: application/json' \
-  -d '{"text":"A staff engineer triaging an open PR with failing CI."}'
+  -d '{"brief":"A staff engineer triaging an open PR with failing CI."}'
 # → { "spec": { profile, filesystem, collaborators, objectives, rubric } }
 ```
 
-The draft spec is a starting point — edit it, then POST it to `/computers` to materialize. v0 is a deterministic stub; the Workers AI-backed structured generator lands in a later phase.
+The draft spec is a starting point — edit it, then POST it to `/api/computers` to materialize. v0 is a deterministic stub; the Workers AI-backed structured generator lands in a later phase.
 
 ## List files
 
 ```sh
-curl http://localhost:8799/c/$ID/list
+curl http://localhost:8799/api/c/$ID/list
 # → { "files": [{ "path": "...", "kind": "...", "state": "..." }, ...] }
 ```
 
 ## Read a file
 
 ```sh
-curl "http://localhost:8799/c/$ID/read?path=docs/auth-redesign.md"
+curl "http://localhost:8799/api/c/$ID/read?path=docs/auth-redesign.md"
 # → { "path": "...", "kind": "...", "content": "..." }
 ```
 
@@ -69,7 +113,7 @@ Records a `read` receipt.
 ## Write a file
 
 ```sh
-curl -X POST http://localhost:8799/c/$ID/write \
+curl -X POST http://localhost:8799/api/c/$ID/write \
   -H 'content-type: application/json' \
   -d '{"path":"notes/triage.md","content":"# Notes\n…"}'
 # → { "path": "...", "written": <bytes> }
@@ -80,7 +124,7 @@ Records a `write` receipt.
 ## Ask a collaborator
 
 ```sh
-curl -X POST http://localhost:8799/c/$ID/ask \
+curl -X POST http://localhost:8799/api/c/$ID/ask \
   -H 'content-type: application/json' \
   -d '{"who":"arch","message":"Should this use a queue?"}'
 # → { "from": "arch", "role": "reviewer", "style": "architectural", "reply": "..." }
@@ -91,7 +135,7 @@ Records an `ask` receipt. The `who` value is the collaborator's `id` from the sp
 ## Submit a decision
 
 ```sh
-curl -X POST http://localhost:8799/c/$ID/submit \
+curl -X POST http://localhost:8799/api/c/$ID/submit \
   -H 'content-type: application/json' \
   -d '{"objective":"triage","decision":"request-changes","notes":"..."}'
 # → { "objective": "...", "accepted": true }
@@ -102,7 +146,7 @@ Records a `submit` receipt. `objective` is the objective's `id` from the spec.
 ## Grade
 
 ```sh
-curl http://localhost:8799/c/$ID/grade
+curl http://localhost:8799/api/c/$ID/grade
 # → {
 #     "score": 4,
 #     "max": 5,
@@ -119,7 +163,7 @@ Pure replay of the receipt log against the rubric. Idempotent — call it as man
 ## Receipts
 
 ```sh
-curl http://localhost:8799/c/$ID/receipts
+curl http://localhost:8799/api/c/$ID/receipts
 # → { "receipts": [{ "ts", "kind", "payload" }, ...] }
 ```
 
@@ -128,6 +172,6 @@ The full append-only log. Useful for debugging an agent's behavior.
 ## Spec
 
 ```sh
-curl http://localhost:8799/c/$ID/spec
+curl http://localhost:8799/api/c/$ID/spec
 # → the original ComputerSpec
 ```

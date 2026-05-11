@@ -17,12 +17,21 @@ export type ContainerRunReceipt = {
   finishedAt: string;
 };
 
+export type RunnerLifecycleReceipt =
+  | { type: "runner.container.missing"; ts: string }
+  | { type: "runner.container.start"; ts: string; alreadyRunning: boolean }
+  | { type: "runner.container.ready_attempt"; ts: string; attempt: number; elapsedMs: number; ok: boolean; error?: string }
+  | { type: "runner.container.ready"; ts: string; attempt: number; elapsedMs: number }
+  | { type: "runner.container.not_ready"; ts: string; attempts: number; elapsedMs: number; error: string }
+  | { type: "runner.response"; ts: string; status: number; elapsedMs: number };
+
 export type ContainerRunResult = {
   ok: boolean;
   receipts: ContainerRunReceipt[];
   artifact?: { path: string; content: string } | null;
   diff?: string;
   error?: string;
+  runnerReceipts?: RunnerLifecycleReceipt[];
 };
 
 export async function runInContainer(runner: unknown, input: ContainerRunRequest): Promise<ContainerRunResult> {

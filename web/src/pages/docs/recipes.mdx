@@ -2,145 +2,44 @@
 layout: "@/layouts/Doc.astro"
 title: "Recipes"
 eyebrow: "Patterns"
-description: "Common things you'll do with Cloudbox: pair it with Think, drive it from any agent, sweep variants, write custom rubrics, ship fixtures to CI."
+description: "Small patterns for using Cloudbox in CI, with agents, and as a proof-producing computer for repo work."
 ---
 
-## Pair with Think
+Use recipes when you know the job and need the smallest working pattern.
 
-The reference integration. Think runs the agent loop; Cloudbox provides the world.
+<div class="grid gap-3 sm:grid-cols-2">
+  <a href="/docs/recipes/ci-cd" class="rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated">
+    <div class="font-semibold text-kumo-default">CI/CD smoke tests</div>
+    <p class="mt-1 text-sm leading-6">Prove your deployed runner can boot, execute, verify, and return a causal artifact.</p>
+  </a>
+  <a href="/docs/recipes/bring-your-agent" class="rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated">
+    <div class="font-semibold text-kumo-default">Bring your agent</div>
+    <p class="mt-1 text-sm leading-6">Let your agent emit a structured run, then use Cloudbox as the computer/proof layer.</p>
+  </a>
+  <a href="/docs/recipes/browser-agent" class="rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated">
+    <div class="font-semibold text-kumo-default">Give your agent a browser</div>
+    <p class="mt-1 text-sm leading-6">Add Chrome next to Cloudbox repo tools, with optional profile reuse for logged-in flows.</p>
+  </a>
+  <a href="/docs/recipes/proof-runs" class="rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated">
+    <div class="font-semibold text-kumo-default">Proof runs</div>
+    <p class="mt-1 text-sm leading-6">Clean-room repo checks that return a handoff, receipts, and an artifact.</p>
+  </a>
+  <a href="/docs/recipes/runner-readiness" class="rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated">
+    <div class="font-semibold text-kumo-default">Runner readiness</div>
+    <p class="mt-1 text-sm leading-6">Continuously check the computer lifecycle: start, ready, response.</p>
+  </a>
+  <a href="/docs/recipes/workspace-protocol" class="rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated sm:col-span-2">
+    <div class="font-semibold text-kumo-default">Workspace protocol</div>
+    <p class="mt-1 text-sm leading-6">Use ComputerSpec workspaces for file tasks, collaborators, submissions, receipts, and grading.</p>
+  </a>
+</div>
 
-```ts
-import { Think } from "@cloudflare/think";
-import { createCloudboxTools } from "cloudbox/think";
-import { createWorkersAI } from "workers-ai-provider";
+## Core loop
 
-export class TriageAgent extends Think<Env> {
-  getModel() {
-    return createWorkersAI({ binding: this.env.AI })("@cf/moonshotai/kimi-k2.6");
-  }
+Every recipe should preserve the same shape:
 
-  getTools() {
-    return createCloudboxTools({
-      computerId: this.env.CLOUDBOX_COMPUTER_ID,
-      fetcher: fetch,
-    });
-  }
-}
+```txt
+agent or CI decides work -> CloudboxRun or ComputerSpec -> fresh computer -> verify -> artifact + receipts
 ```
 
-The model gets `env_list`, `env_read`, `env_write`, `env_ask`, `env_submit` alongside Think's native workspace tools. Different namespaces, no collision.
-
-## Drive Cloudbox from any agent
-
-Cloudbox doesn't care what runtime drives it. Here's a 30-line OpenAI SDK client that completes one PR triage:
-
-```ts
-import OpenAI from "openai";
-
-const openai = new OpenAI();
-const id = (await fetch("/computers", { method: "POST", body: JSON.stringify(spec) })).id;
-
-const messages = [
-  { role: "system", content: "You triage PRs. Use the env_* tools." },
-  { role: "user", content: "Triage the open PR." },
-];
-
-while (true) {
-  const r = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages,
-    tools: cloudboxToolsAsOpenAI(id),
-  });
-  const m = r.choices[0].message;
-  messages.push(m);
-  if (!m.tool_calls) break;
-  for (const call of m.tool_calls) {
-    const result = await callCloudbox(id, call.function.name, JSON.parse(call.function.arguments));
-    messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
-  }
-}
-
-const grade = await fetch(`/c/${id}/grade`).then(r => r.json());
-console.log(grade); // → { score, max, passed, failed, ... }
-```
-
-## Sweep variants
-
-The spec is just data. Generate hundreds of computers by parameterizing it.
-
-```ts
-import { defineComputer } from "cloudbox";
-
-const baseSpec = defineComputer({ /* … */ });
-
-for (const reviewerStyle of ["nitpicky", "architectural", "absent", "hostile"]) {
-  const variant = {
-    ...baseSpec,
-    collaborators: baseSpec.collaborators.map((c) =>
-      c.id === "arch" ? { ...c, style: reviewerStyle } : c
-    ),
-  };
-
-  const { id } = await materialize(variant, env);
-  const trajectory = await runAgent(id);
-  const grade = await fetch(`/c/${id}/grade`).then(r => r.json());
-
-  recordResult(reviewerStyle, grade);
-}
-```
-
-Same agent, four worlds. Comparable scores.
-
-## Write a custom rubric matcher
-
-Rubric matchers are pure functions over the receipt log. v0 ships five built-in matchers (`read`, `readBefore`, `submitted`, `asked`, `askedOnly`). To add your own, fork `src/grade.ts` — the matcher dispatch is a small switch.
-
-```ts
-case "wroteFile":
-  return receipts.some(
-    (r) => r.kind === "write" && r.payload.path === event.path,
-  );
-```
-
-A first-class extension point ships in a later phase.
-
-## Ship a fixture to CI
-
-The simplest pattern: commit a `ComputerSpec` as a TypeScript file, materialize it in a CI job, run your agent against it, fail the build if the score drops below a threshold.
-
-```ts
-// fixtures/pr-triage.ts
-import { defineComputer } from "cloudbox";
-export const prTriageSpec = defineComputer({ /* … */ });
-```
-
-```yaml
-# .github/workflows/agent-eval.yml
-- run: |
-    npx cloudbox materialize fixtures/pr-triage.ts > .cloudbox/id
-    npx my-agent run --cloudbox $(cat .cloudbox/id)
-    SCORE=$(curl -s $CLOUDBOX_URL/c/$(cat .cloudbox/id)/grade | jq .score)
-    test "$SCORE" -ge 5 || exit 1
-```
-
-A `cloudbox` CLI helper for the materialize-from-disk step ships in a later phase.
-
-## Edit a brief-generated draft
-
-`fromBrief()` produces a spec you can edit. Useful when you want the structure but not the LLM-shaped randomness.
-
-```ts
-import { fromBrief } from "cloudbox";
-
-const draft = await fromBrief("A staff engineer triaging an open PR.", env);
-
-// draft is a ComputerSpec — edit it before materializing.
-draft.rubric.push({
-  id: "ci-fixed",
-  weight: 2,
-  must: "writes a fix that makes CI pass",
-  mustEvent: { type: "wroteFile", path: ".github/workflows/ci.yml" },
-});
-
-const { id } = await materialize(draft, env);
-```
+If the artifact is not caused by the run, it is not proof. If the receipt is missing, the claim did not happen.

@@ -21,7 +21,7 @@ export function materializeLocal(spec: ComputerSpec) {
   const state: LocalState = { spec, files, receipts: [] };
   states.set(id, state);
   append(state, "init", { id });
-  return { id, baseUrl: `/local-demo/c/${id}` };
+  return { id, baseUrl: `/api/c/${id}` };
 }
 
 export async function handleLocalAction(id: string, action: string, request: Request, url: URL): Promise<{ status: number; body: unknown }> {

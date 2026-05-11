@@ -2,20 +2,38 @@
 layout: "@/layouts/Doc.astro"
 title: "Quickstart"
 eyebrow: "Seven-minute path"
-description: "Run Cloudbox locally and watch an agent demo the Cloudbox launch-readiness workflow."
+description: "Deploy Cloudbox, run a repo in a Cloudflare Container, and inspect receipts and artifacts."
 ---
 
 ## Goal
 
-Get Cloudbox into your Cloudflare account, then hand your agent a clean computer with receipts and artifacts.
+Get Cloudbox into your Cloudflare account, then hand your agent a clean Linux box with receipts and artifacts.
 
-## 1. Deploy to Cloudflare
+## 1. Deploy your own
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox)
 
-This is the shortest path for production: Cloudbox deploys as Cloudflare infrastructure you own. The one-click flow is the public funnel; GitHub Actions deployment is the verified path for this repo today.
+Cloudbox is built to be your Cloudbox. The button forks the repo into your account and runs `alchemy.run.ts`, which provisions the Worker, the `CloudboxRunner` Durable Object + `cloudbox-runner` Cloudflare Container, the workspace DO namespace, R2, and D1. The one-click flow is the public funnel; the GitHub Actions deploy path is the verified one for this repo today.
 
-## 2. Copy the agent prompt
+Once deployed, you can `POST /api/runs` from any agent — Cloudbox itself runs nothing on your behalf.
+
+## 2. Bring your agent
+
+Cloudbox is agent-agnostic. Anything that can `POST` JSON can drive it. The simplest path:
+
+```sh
+curl -X POST https://YOUR-CLOUDBOX.workers.dev/api/runs \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{
+    "repo": "https://github.com/you/app",
+    "commands": ["pnpm install --ignore-scripts"],
+    "verify": ["pnpm run build", "pnpm test"],
+    "artifact": "HANDOFF.md"
+  }'
+```
+
+Drop this prompt into your agent:
 
 <button type="button" class="rounded-md bg-kumo-contrast px-4 py-2 text-sm font-medium text-kumo-base" data-copy-prompt="cloudbox">
   Copy prompt
@@ -25,19 +43,17 @@ This is the shortest path for production: Cloudbox deploys as Cloudflare infrast
 You have access to Cloudbox at https://YOUR-CLOUDBOX.workers.dev.
 
 Use Cloudbox when repo work needs proof:
-- create a run with the repo, task, verification commands, and requested artifact
-- use the Cloudbox computer for files, shell, browser checks, and tools
-- record receipts for reads, writes, commands, questions, and submissions
-- verify the work with explicit commands
-- write the requested artifact, usually HANDOFF.md
-- return the Cloudbox run URL, artifact path, and final grade
+- POST /api/runs with the repo, commands, verify commands, and requested artifact
+- inspect receipts, runnerReceipts, and the returned diff to confirm the work
+- for richer flows, materialize a workspace via /api/computers and drive /api/c/:id/*
+- return the Cloudbox response, artifact path, and final grade
 ```
 
 <script is:inline>{`
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-copy-prompt='cloudbox']");
     if (!button) return;
-    const prompt = "You have access to Cloudbox at https://YOUR-CLOUDBOX.workers.dev.\n\nUse Cloudbox when repo work needs proof:\n- create a run with the repo, task, verification commands, and requested artifact\n- use the Cloudbox computer for files, shell, browser checks, and tools\n- record receipts for reads, writes, commands, questions, and submissions\n- verify the work with explicit commands\n- write the requested artifact, usually HANDOFF.md\n- return the Cloudbox run URL, artifact path, and final grade";
+    const prompt = "You have access to Cloudbox at https://YOUR-CLOUDBOX.workers.dev.\n\nUse Cloudbox when repo work needs proof:\n- POST /api/runs with the repo, commands, verify commands, and requested artifact\n- inspect receipts, runnerReceipts, and the returned diff to confirm the work\n- for richer flows, materialize a workspace via /api/computers and drive /api/c/:id/*\n- return the Cloudbox response, artifact path, and final grade";
     await navigator.clipboard.writeText(prompt);
     const previous = button.textContent;
     button.textContent = "Copied";
@@ -49,17 +65,18 @@ Use Cloudbox when repo work needs proof:
 
 ## 3. Manual walkthrough
 
-Get from clone to a graded agent run in under seven minutes.
+Get from clone to a working local demo in under seven minutes.
 
-The local demo needs Bun. It does not need secrets for the constrained path.
-Cloudflare bindings are used by the Worker/DO runtime when you run or deploy the app.
+The local loop uses **pnpm**, **Bun ≥ 1.3**, and **Node ≥ 22**. No secrets needed for the demo path. Cloudflare bindings (`CLOUDBOX_RUNNER`, `CLOUDBOX_COMPUTER`, R2, D1) come online when you `bun run dev:worker` or deploy.
+
+Inside the runner container, **pnpm** is the default package manager and the image ships with `git`, `node`, `bun`, and `pnpm` preinstalled. Recipe examples lean on pnpm; pick whatever your repo uses.
 
 ### Clone and install
 
 ```sh
 git clone https://github.com/acoyfellow/cloudbox
 cd cloudbox
-bun install
+pnpm install
 ```
 
 ### Run the app
@@ -72,54 +89,52 @@ Open the URL the script prints and go to `/demo`.
 
 ### Run the demo
 
-Click **Run sample agent**.
+Click **Run in Cloudbox**.
 
-The scripted agent performs the same shape of work I want from my real agents:
+The demo performs the same lifecycle your agents should use:
 
-1. read `README.md` for positioning
-2. read `docs/quickstart.md` for the runnable path
-3. read `docs/architecture.md` for the Cloudflare infra shape
-4. ask `skeptic` what claims or gaps would waste agent time
-5. write `artifacts/launch-note.md`
-6. submit a `launch-readiness` decision
-7. receive a score from the durable receipt log
+1. clone a public repo
+2. boot the Cloudflare Container runner
+3. run explicit commands
+4. run verification
+5. return one artifact plus work and runner receipts
 
-The UI should show receipts streaming in and a final grade.
+The UI should show runner readiness, proof timeline, work receipts, and the returned artifact.
 
 ### Verify the repo
 
 ```sh
-bun run check
+pnpm run check
 ```
 
 This builds the docs/app, typechecks, and runs tests.
 
 ### Drive the protocol yourself
 
-Materialize a spec:
+Materialize a spec by posting your own `ComputerSpec` JSON:
 
 ```sh
-curl -s -X POST http://localhost:8799/computers \
+curl -s -X POST http://localhost:8799/api/computers \
   -H 'content-type: application/json' \
-  -d @seed/agent-launch.json
+  -d @spec.json
 ```
 
-Or post your own `ComputerSpec` JSON. The response includes `{ id, baseUrl }`.
+The response includes `{ id, baseUrl }`.
 Then use the workspace protocol:
 
 ```sh
-curl -s "http://localhost:8799/c/$ID/list"
-curl -s "http://localhost:8799/c/$ID/read?path=README.md"
-curl -s -X POST "http://localhost:8799/c/$ID/ask" \
+curl -s "http://localhost:8799/api/c/$ID/list"
+curl -s "http://localhost:8799/api/c/$ID/read?path=README.md"
+curl -s -X POST "http://localhost:8799/api/c/$ID/ask" \
   -H 'content-type: application/json' \
   -d '{"who":"skeptic","message":"What am I overclaiming?"}'
-curl -s -X POST "http://localhost:8799/c/$ID/write" \
+curl -s -X POST "http://localhost:8799/api/c/$ID/write" \
   -H 'content-type: application/json' \
   -d '{"path":"artifacts/launch-note.md","content":"ready"}'
-curl -s -X POST "http://localhost:8799/c/$ID/submit" \
+curl -s -X POST "http://localhost:8799/api/c/$ID/submit" \
   -H 'content-type: application/json' \
   -d '{"objective":"launch-readiness","decision":"share"}'
-curl -s "http://localhost:8799/c/$ID/grade"
+curl -s "http://localhost:8799/api/c/$ID/grade"
 ```
 
 ## Stop condition
@@ -127,9 +142,9 @@ curl -s "http://localhost:8799/c/$ID/grade"
 The quickstart is healthy when a fresh clone can:
 
 ```sh
-bun install
-bun run check
-bun run dev
+pnpm install
+pnpm run check
+pnpm run dev
 ```
 
 …and `/demo` produces a visible receipt trail plus a nonzero grade.

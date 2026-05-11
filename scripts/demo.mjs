@@ -38,10 +38,10 @@ try {
 
   const runId = `demo-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const spec = { ...agentLaunchSpec, runId };
-  const computer = await post("/computers", spec);
+  const computer = await post("/api/computers", spec);
   ok("materialized demo workspace", computer.id);
 
-  const listed = await req(`/c/${computer.id}/list`);
+  const listed = await req(`/api/c/${computer.id}/list`);
   if (!listed.files.some((f) => f.path === "README.md")) throw new Error("README.md missing from file list");
   ok("listed workspace files", `${listed.files.length} files`);
 
@@ -50,16 +50,16 @@ try {
     origin: base,
     fetcher: fetch,
   });
-  const before = await req(`/c/${computer.id}/receipts`);
+  const before = await req(`/api/c/${computer.id}/receipts`);
   const agentResult = await runCloudboxAgent(spec, tools);
   ok("real agent runner completed", `${agentResult.steps.length} tool calls · decision=${agentResult.decision}`);
 
-  const grade = await req(`/c/${computer.id}/grade`);
+  const grade = await req(`/api/c/${computer.id}/grade`);
   const expected = grade.max;
   if (grade.score !== expected || expected < 8) throw new Error(`bad grade ${JSON.stringify(grade)}`);
   ok("grade passed", `${grade.score}/${grade.max}`);
 
-  const receipts = await req(`/c/${computer.id}/receipts`);
+  const receipts = await req(`/api/c/${computer.id}/receipts`);
   const currentReceipts = receipts.receipts.filter((r) => r.payload?.runId === runId);
   if (currentReceipts.length <= before.receipts.length) { /* run ids isolate this run; count is independent */ }
   const kinds = currentReceipts.map((r) => r.kind);
@@ -68,7 +68,7 @@ try {
   }
   ok("current-run receipt trail complete", `${currentReceipts.length} receipts · ${runId}`);
 
-  const artifact = await req(`/c/${computer.id}/read?path=${encodeURIComponent("artifacts/launch-note.md")}`);
+  const artifact = await req(`/api/c/${computer.id}/read?path=${encodeURIComponent("artifacts/launch-note.md")}`);
   if (!String(artifact.content).includes("Decision: share")) throw new Error(`artifact content missing decision: ${artifact.content}`);
   ok("artifact readable after write", `${artifact.content.length} chars`);
 

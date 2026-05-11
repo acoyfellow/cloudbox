@@ -2,12 +2,37 @@
 layout: "@/layouts/Doc.astro"
 title: "Concepts"
 eyebrow: "What's in a Cloudbox"
-description: "A Cloudbox is a typed spec, materialized into a Durable Object plus R2-backed bytes. Six layers of structured data, each constraining the ones below it."
+description: "Cloudbox has two surfaces: runs (real repo work in a Cloudflare Container) and workspaces (typed specs materialized into a Durable Object). Both produce receipts."
 ---
 
-## The shape
+## Two surfaces, one trail
 
-Every Cloudbox is six layers. Author them by hand, or generate a draft from a one-line brief and edit before materializing.
+Cloudbox gives an agent two ways to act, both receipt-backed:
+
+- **Runs** (`POST /api/runs`) — point the agent at a real public GitHub repo and a list of commands. Execution happens inside the `CloudboxRunner` Durable Object, which fronts a Cloudflare Container. The response is `{ ok, receipts, runnerReceipts, artifact, diff }`.
+- **Workspaces** (`POST /api/computers` + `/api/c/:id/*`) — author a typed `ComputerSpec` and materialize it into a `ComputerDO`. The agent then reads files, asks collaborators, writes artifacts, submits decisions, and gets graded against a rubric.
+
+Pick the run surface when you have a real repo and a verification command. Pick the workspace surface when you want to constrain the agent's world and grade its trajectory.
+
+## Runs
+
+A run is the simplest unit of agent work. You hand Cloudbox:
+
+```ts
+type RunInput = {
+  repo: string;          // public GitHub HTTPS repo
+  commands?: string[];   // setup / change / reproduce commands
+  verify?: string[];     // verification commands
+  artifact?: string;     // file to return, e.g. HANDOFF.md
+  timeoutMs?: number;
+};
+```
+
+The runner clones the repo, runs commands, runs verification, captures the requested artifact, and returns a `diff`. Each step appends a `ContainerRunReceipt` (`clone`, `command`, `verify`, `diff`) with exit code, stdout, stderr, and timestamps. Container boot and lifecycle events flow back as `runnerReceipts`.
+
+## Workspaces — the spec shape
+
+When you need more than a single run, materialize a typed workspace. Every Cloudbox workspace is six layers. Author them by hand, or generate a draft from a one-line brief and edit before materializing.
 
 ```ts
 type ComputerSpec = {
@@ -111,7 +136,7 @@ Criteria without a `mustEvent` are reported as `ungraded` — present in the rub
 
 ## Receipts
 
-Every protocol call writes a receipt to the computer's Durable Object. The grader replays the receipts against the rubric to produce the score. You can inspect the log directly with `GET /c/:id/receipts`.
+Every protocol call writes a receipt to the computer's Durable Object. The grader replays the receipts against the rubric to produce the score. You can inspect the log directly with `GET /api/c/:id/receipts`.
 
 ```ts
 type Receipt = {

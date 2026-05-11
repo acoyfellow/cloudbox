@@ -18,6 +18,14 @@
     "demo": "bun run build && node scripts/demo.mjs",
     "demo:fast": "node scripts/demo.mjs",
     "demo:browser": "bun run build && node scripts/browser-demo.mjs",
+    "browser:smoke": "node scripts/browser-agent-smoke.mjs",
+    "browser:video": "node scripts/browser-agent-video-smoke.mjs",
+    "runner:test": "node scripts/runner-smoke.mjs",
+    "runner:smoke": "node scripts/runner-smoke.mjs",
+    "proof:runner": "node scripts/proof-runner-readiness.mjs",
+    "proof:launch": "node scripts/proof-launch-readiness.mjs",
+    "proof:ci": "node scripts/proof-ci-smoke.mjs",
+    "proof": "bun run proof:runner && bun run proof:launch && bun run proof:ci",
     "ci": "bun run check"
   },
   "workspaces": [

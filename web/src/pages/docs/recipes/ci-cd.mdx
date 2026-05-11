@@ -1,0 +1,134 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "CI/CD smoke tests"
+eyebrow: "Recipe"
+description: "Run Cloudbox from GitHub Actions and upload the proof as a workflow artifact."
+---
+
+This recipe is for the repo that **deploys Cloudbox**. It proves the deployed Cloudbox instance can still boot a runner, execute a repo task, verify it, and return an artifact.
+
+## 1. Add the workflow
+
+Create `.github/workflows/cloudbox-smoke.yml`:
+
+```yaml
+name: cloudbox-smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Cloudbox smoke test
+        run: node scripts/proof-ci-smoke.mjs
+        env:
+          CLOUDBOX_E2E_URL: https://YOUR-CLOUDBOX.workers.dev
+          CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
+
+      - name: Upload proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudbox-ci-smoke
+          path: artifacts/CI_SMOKE.md
+```
+
+## 2. Add the secret
+
+In GitHub:
+
+```txt
+Repo → Settings → Secrets and variables → Actions → New repository secret
+```
+
+Add:
+
+```txt
+CLOUDBOX_API_TOKEN=<the token configured on your Cloudbox Worker>
+```
+
+## 3. Add the smoke script
+
+If you are using this Cloudbox repo, the script already exists:
+
+```txt
+scripts/proof-ci-smoke.mjs
+```
+
+If you are copying the pattern into another repo, add this file:
+
+```js
+#!/usr/bin/env node
+import { mkdirSync, writeFileSync } from "node:fs";
+
+const url = process.env.CLOUDBOX_E2E_URL;
+const token = process.env.CLOUDBOX_API_TOKEN;
+const out = "artifacts/CI_SMOKE.md";
+const repo = process.env.CLOUDBOX_CI_REPO ?? "https://github.com/acoyfellow/cloudbox";
+const nonce = `ci-smoke-${Date.now()}`;
+
+if (!url) throw new Error("CLOUDBOX_E2E_URL is required");
+if (!token) throw new Error("CLOUDBOX_API_TOKEN is required");
+
+const response = await fetch(`${url}/api/runs`, {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    repo,
+    commands: [`echo ${nonce} > CI_SMOKE.md`],
+    verify: ["test -f CI_SMOKE.md"],
+    artifact: "CI_SMOKE.md",
+    timeoutMs: 30_000,
+  }),
+});
+
+const body = await response.json();
+const ready = body.runnerReceipts?.some((r) => r.type === "runner.container.ready");
+const verified = body.receipts?.some((r) => r.type === "verify" && r.code === 0);
+const artifactMatched = body.artifact?.content === `${nonce}\n`;
+const ok = response.ok && body.ok === true && ready && verified && artifactMatched;
+
+mkdirSync("artifacts", { recursive: true });
+writeFileSync(out, `# Cloudbox CI Smoke\n\nStatus: ${ok ? "pass" : "fail"}\n\n- URL: ${url}\n- Repo: ${repo}\n- Artifact matched: ${artifactMatched}\n- Verify receipt: ${verified ? "pass" : "missing"}\n- Runner ready: ${ready ? "yes" : "missing"}\n\n## Response\n\n\`\`\`json\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`);
+
+if (!ok) process.exit(1);
+console.log(`CI_SMOKE_PASS ${out}`);
+```
+
+## 4. Run it manually
+
+From the GitHub Actions tab, choose:
+
+```txt
+cloudbox-smoke → Run workflow
+```
+
+A passing run uploads:
+
+```txt
+cloudbox-ci-smoke / CI_SMOKE.md
+```
+
+## What the smoke test proves
+
+It checks more than HTTP 200:
+
+- Cloudbox accepted the run.
+- The runner Container became ready.
+- The command wrote a nonce into `CI_SMOKE.md`.
+- Verification passed.
+- The returned artifact contains the same nonce.
+
+That means the deployed Worker, runner Durable Object, Container, and artifact path are connected end to end.

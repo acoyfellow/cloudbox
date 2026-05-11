@@ -1,0 +1,59 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Runner readiness"
+eyebrow: "Recipe"
+description: "Continuously prove that the CloudboxRunner Durable Object can start or reuse a Cloudflare Container and return proof."
+---
+
+## Why this exists
+
+Cloudbox has two proof layers:
+
+1. **Computer proof** — the runner started, became ready, and responded.
+2. **Work proof** — the repo cloned, commands ran, verification passed, and an artifact returned.
+
+Runner readiness checks the first layer directly.
+
+## Built-in script
+
+```sh
+CLOUDBOX_E2E_URL=https://YOUR-CLOUDBOX.workers.dev \
+CLOUDBOX_API_TOKEN=$CLOUDBOX_API_TOKEN \
+node scripts/proof-runner-readiness.mjs
+```
+
+The script writes:
+
+```txt
+artifacts/RUNNER_READINESS.md
+```
+
+It verifies:
+
+- the API returns `ok: true`
+- the artifact contains the nonce written by the command
+- `runnerReceipts` includes `runner.container.ready`
+
+## Reading runner receipts
+
+A healthy run includes events like:
+
+```json
+[
+  { "type": "runner.container.start", "alreadyRunning": false },
+  { "type": "runner.container.ready_attempt", "attempt": 1, "ok": true },
+  { "type": "runner.container.ready", "attempt": 1, "elapsedMs": 1306 },
+  { "type": "runner.response", "status": 200 }
+]
+```
+
+If the runner cannot listen on the exposed port, the response should include `runner.container.not_ready` instead of failing mysteriously.
+
+## When to run it
+
+Run runner readiness:
+
+- after deploying Cloudbox
+- nightly from GitHub Actions
+- before sharing a demo link
+- after changing `runner/`, `src/runner-do.ts`, or `src/runner-lifecycle.ts`

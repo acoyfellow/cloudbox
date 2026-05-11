@@ -5,7 +5,7 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox)
 
-Cloudbox is deployable Cloudflare infrastructure for running agent work in clean workspaces and getting back proof: receipts, artifacts, grades, and a replayable trail of what happened.
+Cloudbox is a deploy-your-own Cloudflare Worker that hands an agent a real Linux box on a real repo and records what happens: receipts, artifacts, grades, and a replayable trail.
 
 It is designed to move people from:
 
@@ -26,28 +26,25 @@ homepage → demo → docs → source → deploy to Cloudflare
 ```sh
 git clone https://github.com/acoyfellow/cloudbox
 cd cloudbox
-bun install
-bun run dev
+pnpm install
+pnpm run dev
 ```
 
 Open the local URL and click **Demo**.
 
-## Deploy to your Cloudflare account
+## Deploy your own
 
-The intended production path is GitHub Actions + Cloudflare.
-
-Required Cloudflare resources are provisioned through `alchemy.run.ts`:
+Cloudbox is built to be your Cloudbox. You fork, you deploy, you own the data plane. Cloudflare resources are provisioned through `alchemy.run.ts`:
 
 - Worker for the web app and API
-- Durable Object namespace for workspaces
+- `CloudboxRunner` Durable Object that fronts a Cloudflare Container (`cloudbox-runner`) for real execution
+- `ComputerDO` Durable Object namespace for per-workspace state and receipts
 - R2 bucket for artifacts
 - D1 database for indexes and migrations
 - Static assets for the Astro app
 - Optional custom domain
 
-Use the deploy button above, or fork the repo and set these GitHub environment secrets.
-
-> Status: the GitHub Actions deployment path is verified for this repo. The one-click Deploy to Cloudflare button is the intended funnel and should be treated as experimental until tested from a fresh external account.
+The intended production path is GitHub Actions + Cloudflare. Use the Deploy button above, or fork and set these GitHub environment secrets:
 
 ```txt
 CLOUDFLARE_ACCOUNT_ID
@@ -58,7 +55,9 @@ CLOUDBOX_API_TOKEN
 CLOUDBOX_D1_DATABASE_ID
 ```
 
-The Cloudflare API token needs access to:
+> Status: the GitHub Actions deploy path is verified for this repo. The one-click Deploy to Cloudflare button is the public funnel and should be treated as experimental from a fresh external account until tested.
+
+The Cloudflare API token needs:
 
 ```txt
 Account read
@@ -71,24 +70,24 @@ Secrets Store edit
 Zone read/edit if using a custom domain
 ```
 
-Cloudbox production currently uses these resource names:
+Production resource names:
 
 ```txt
-Worker: cloudbox
-Container runner: cloudbox-runner
-D1: cloudbox-prod
-R2: cloudbox-artifacts
-State store Worker: alchemy-state-store
+Worker:          cloudbox
+Container:       cloudbox-runner
+Runner DO class: CloudboxRunner
+Workspace DO:    ComputerDO (CLOUDBOX_COMPUTER)
+D1:              cloudbox-prod
+R2:              cloudbox-artifacts
+State store:     alchemy-state-store
 ```
 
-Then run the `check` workflow on `main`.
+## What a run looks like
 
-## What Cloudbox does
-
-A run gives an agent a real Cloudflare Container, a repo, commands, verification, and an artifact. Cloudbox records the trail.
+A run gives an agent a clean Linux container, a public repo, commands, verification, and an artifact to return. Cloudbox records the trail.
 
 ```sh
-curl -s https://cloudbox.coey.dev/runs \
+curl -s https://cloudbox.coey.dev/api/runs \
   -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
   -H "content-type: application/json" \
   -d '{
@@ -99,30 +98,39 @@ curl -s https://cloudbox.coey.dev/runs \
   }'
 ```
 
-A finished run should include:
+The response includes:
 
-- pinned repo/source context
-- commands and tool calls
-- reads, writes, and submissions
-- artifacts such as `HANDOFF.md`
-- patch or diff summary
-- receipt-backed grade
+- `runId` — stable id for looking up the run later when D1 is bound
+- `ok` — verification passed
+- `receipts` — per-step clone/command/verify events with exit codes, stdout, stderr, timestamps
+- `runnerReceipts` — container lifecycle events (boot, request, error) from the `CloudboxRunner` DO
+- `artifact` — `{ path, content }` of the requested file
+- `diff` — patch summary of changes made by the run
+
+## Bring your agent
+
+Cloudbox is agent-agnostic. Anything that can POST JSON can drive it. Patterns:
+
+- **HTTP only** — your agent posts to `/api/runs` and reads back receipts + artifact. No SDK required.
+- **Workspace protocol** — agents that want files, ask/submit semantics, and grading drive `/api/c/:id/*` after materializing a `ComputerSpec`.
+- **Think integration** — `createCloudboxTools()` from `src/think.ts` exposes `env_list / env_read / env_write / env_ask / env_submit` to a Think loop.
+- **Any framework** — OpenAI SDK, AI SDK, Mastra, custom — the API is just JSON.
+
+See `docs/recipes` for examples.
 
 ## Demo flow
 
-The current hosted demo materializes a small Cloudbox workspace. The agent:
+The hosted demo runs a public GitHub repo in Cloudbox and shows the proof trail:
 
-1. reads launch-readiness files
-2. asks a skeptical reviewer for missing checks
-3. writes `artifacts/launch-note.md`
-4. submits a decision
-5. receives a grade from receipts
+1. runner lifecycle receipts from the `CloudboxRunner` Container
+2. clone/run/verify/diff receipts from the repo task
+3. one returned artifact for human inspection
 
-Run it locally:
+Run the local proof scripts:
 
 ```sh
-bun run demo:fast
-bun run demo:browser
+pnpm run demo:fast
+pnpm run demo:browser
 ```
 
 ## Recipes
@@ -162,77 +170,76 @@ Use `reproduce`, `fix`, and `verify` so the result proves both failure and repai
 }
 ```
 
-## Tools
-
-Shell and files are built in. Extra tools are explicit.
-
-```ts
-tools: {
-  browser: agentBrowser(),
-  deploy: cloudflare(),
-  jira: mcp("jira"),
-}
-```
-
-Every tool call should become part of the receipt trail.
-
 ## How it works
 
 Cloudbox has two layers:
 
-1. **Control plane** — Worker routes, Durable Objects, R2 artifacts, D1 indexes, receipt grading.
-2. **Computer** — a Cloudflare Container runner that clones repos, runs commands, verifies work, captures diff, and returns artifacts.
+1. **Control plane** — Worker routes, `ComputerDO` for workspaces, R2 artifacts, D1 indexes, receipt grading.
+2. **Runner** — `CloudboxRunner` Durable Object wraps a Cloudflare Container that clones repos, runs commands, verifies, captures diff, and returns artifacts. Container lifecycle events flow back as `runnerReceipts`.
+
+The container image is in `runner/Dockerfile` and ships with `git`, `node`, `bun`, and `pnpm` preinstalled.
 
 ## API reference
 
-Current workspace protocol:
+Workspace protocol (per-`ComputerSpec`):
 
 ```sh
-POST /computers
-GET  /c/:id/list
-GET  /c/:id/read?path=README.md
-POST /c/:id/ask
-POST /c/:id/write
-POST /c/:id/submit
-GET  /c/:id/receipts
-GET  /c/:id/grade
+POST /api/computers
+POST /api/brief
+GET  /api/c/:id/list
+GET  /api/c/:id/read?path=README.md
+POST /api/c/:id/ask
+POST /api/c/:id/write
+POST /api/c/:id/submit
+GET  /api/c/:id/receipts
+GET  /api/c/:id/grade
+GET  /api/c/:id/spec
 ```
 
-Real repo run API:
+Real repo runs (Container-backed):
 
 ```sh
-POST /runs
+POST /api/runs
+GET  /api/runs/recent   # when D1 is bound
+GET  /api/runs/:runId   # when D1 is bound
 ```
 
 ```ts
 type RunInput = {
   repo: string;          // public GitHub HTTPS repo
-  commands?: string[];   // setup/change/reproduce commands
+  commands?: string[];   // setup / change / reproduce commands
   verify?: string[];     // verification commands
   artifact?: string;     // file to return, e.g. HANDOFF.md
   timeoutMs?: number;
 };
 ```
 
+Authenticated with `Authorization: Bearer $CLOUDBOX_API_TOKEN` (when the secret is set).
+
+## Tooling story
+
+- **pnpm** is the recommended package manager for installing Cloudbox and for CI. GitHub Actions uses `pnpm install --no-frozen-lockfile --ignore-scripts`.
+- **Bun** is still required by the Alchemy/development scripts and by the runner image. Install Bun ≥ 1.3 and Node ≥ 22.
+- The runner container ships with `git`, `node`, `bun`, and `pnpm`; recipe examples lean on pnpm, but your repo can run whatever commands it needs.
+
 ## Development
 
 ```sh
-bun run build
-bun run typecheck
-bun run test
-bun run demo:fast
-bun run demo:browser
+pnpm run build
+pnpm run typecheck
+pnpm run test
+pnpm run demo:fast
+pnpm run demo:browser
+pnpm run runner:test
 ```
 
 ## Status
 
-Cloudbox is early. The deployed app, demo, receipts, artifacts, grading, deploy path, and Cloudflare Container runner path are in the repo. Real repo runs go through `POST /runs` and execute in the container runner.
+Cloudbox is early. The deployed app, demo, receipts, artifacts, grading, deploy path, and Cloudflare Container runner path are in the repo. Real repo runs go through `POST /api/runs` and execute in the `CloudboxRunner` container.
 
 ## Research lineage
 
 Cloudbox is inspired by computer-use research, but the product is real repo work for agents and humans: short feedback loops, visible receipts, Cloudflare Container execution, and proof you can inspect.
-
-Paper: https://arxiv.org/abs/2604.28181
 
 ## License
 

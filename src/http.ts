@@ -9,6 +9,7 @@ export type CloudboxBindings = {
   CLOUDBOX_COMPUTER?: DurableObjectNamespace;
   CLOUDBOX_RUNNER?: unknown;
   ARTIFACTS?: R2Bucket;
+  DB?: D1Database;
   CLOUDBOX_API_TOKEN?: string;
   AI?: unknown;
 };
@@ -49,6 +50,20 @@ api.all("/api/c/:id/:action", async (c) => {
   return stub.fetch(new Request(upstream, c.req.raw));
 });
 
+api.get("/api/runs/recent", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const rows = await listRuns(c.env.DB);
+  return c.json({ runs: rows });
+});
+
+api.get("/api/runs/:id", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await getRun(c.env.DB, c.req.param("id"));
+  return row ? c.json(row) : jsonError(c, 404, "run_not_found", "run not found");
+});
+
 api.post("/api/runs", async (c) => {
   const demo = c.req.raw.headers.get("x-cloudbox-demo") === "1";
   const auth = demo ? null : authorize(c.req.raw, null, c.env);
@@ -58,11 +73,15 @@ api.post("/api/runs", async (c) => {
   if (validation) return validation;
   if (demo && !isAllowedDemoRun(input)) return jsonError(c, 403, "demo_not_allowed", "demo runs only allow public GitHub repos with short echo/test commands");
   if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const runId = `run_${crypto.randomUUID()}`;
   try {
     const result = await runInContainer(c.env.CLOUDBOX_RUNNER, input as ContainerRunRequest);
-    return c.json(result, result.ok ? 200 : 422);
+    await recordRun(c.env.DB, { id: runId, input, result, status: result.ok ? "passed" : "failed" });
+    return c.json({ runId, ...result }, result.ok ? 200 : 422);
   } catch (error) {
-    return jsonError(c, 500, "runner_error", String(error instanceof Error ? error.message : error));
+    const result = { ok: false, error: "runner_error", detail: String(error instanceof Error ? error.message : error) };
+    await recordRun(c.env.DB, { id: runId, input, result, status: "error" });
+    return c.json({ runId, ...result }, 500);
   }
 });
 
@@ -103,6 +122,10 @@ function isAllowedDemoRun(input: ContainerRunRequest | null): boolean {
   const commands = [...(input.commands ?? []), ...(input.verify ?? [])];
   if (commands.length > 4) return false;
   if (commands.some((cmd) => !/^(echo |test |pwd$|ls( |$)|node --version$|npm --version$|pnpm --version$|bun --version$)/.test(cmd))) return false;
+  // Reject shell metacharacters that could chain into other commands. Demo runs
+  // are sandboxed to a curated allow-list; block obvious injection attempts so
+  // a permissive prefix like `echo ` cannot smuggle additional commands.
+  if (commands.some((cmd) => /[;&|`$<>\n\r\\]/.test(cmd))) return false;
   return !!input.repo && /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(input.repo);
 }
 
@@ -119,6 +142,43 @@ function validateRun(input: ContainerRunRequest | null): Response | null {
   if (!input.commands?.length && !input.verify?.length) return jsonErrorResponse(400, "bad_run", "at least one command or verify command is required");
   if (input.artifact !== undefined && (typeof input.artifact !== "string" || input.artifact.length > 240)) return jsonErrorResponse(400, "bad_run", "artifact must be a short relative path");
   return null;
+}
+
+type RunRecord = { id: string; createdAt: string; repo: string; status: string; artifact: string | null; result: unknown };
+
+async function ensureRunsTable(db?: D1Database): Promise<void> {
+  if (!db) return;
+  await db.prepare(`CREATE TABLE IF NOT EXISTS runs (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    repo TEXT NOT NULL,
+    status TEXT NOT NULL,
+    artifact TEXT,
+    result TEXT NOT NULL
+  )`).run();
+}
+
+async function recordRun(db: D1Database | undefined, row: { id: string; input: ContainerRunRequest | null; result: unknown; status: string }): Promise<void> {
+  if (!db || !row.input) return;
+  await ensureRunsTable(db);
+  const artifact = typeof row.input.artifact === "string" ? row.input.artifact : null;
+  await db.prepare("INSERT OR REPLACE INTO runs (id, created_at, repo, status, artifact, result) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(row.id, new Date().toISOString(), row.input.repo, row.status, artifact, JSON.stringify(row.result).slice(0, 200_000))
+    .run();
+}
+
+async function listRuns(db?: D1Database): Promise<Omit<RunRecord, "result">[]> {
+  if (!db) return [];
+  await ensureRunsTable(db);
+  const result = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact FROM runs ORDER BY created_at DESC LIMIT 20").all<Omit<RunRecord, "result">>();
+  return result.results ?? [];
+}
+
+async function getRun(db: D1Database | undefined, id: string): Promise<RunRecord | null> {
+  if (!db) return null;
+  await ensureRunsTable(db);
+  const row = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact, result FROM runs WHERE id = ?").bind(id).first<any>();
+  return row ? { ...row, result: JSON.parse(row.result) } : null;
 }
 
 function jsonError(c: any, status: number, code: string, detail: string): Response {

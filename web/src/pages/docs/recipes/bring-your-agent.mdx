@@ -1,0 +1,94 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Bring your agent"
+eyebrow: "Recipe"
+description: "Let your agent plan repo work, then use Cloudbox as the fresh computer and proof layer."
+---
+
+## The loop
+
+Cloudbox is not the model. It is the computer your model uses. Pick the model in your own agent stack — Anthropic, OpenAI, Gemini, Workers AI, an AI Gateway route, a local CLI, or anything else that can emit JSON.
+
+```txt
+your model/agent -> CloudboxRun JSON -> cloudbox.run(run) -> receipts + artifact
+```
+
+A `CloudboxRun` is deliberately small:
+
+```ts
+type CloudboxRun = {
+  repo: string;
+  commands: string[];
+  verify: string[];
+  artifact: string;
+};
+```
+
+## Minimal client
+
+```ts
+import { createCloudbox } from "cloudbox/client";
+
+const cloudbox = createCloudbox({
+  baseUrl: "https://YOUR-CLOUDBOX.workers.dev",
+  token: process.env.CLOUDBOX_API_TOKEN,
+});
+
+const run = await agent.generateObject({
+  schema: CloudboxRun,
+  prompt: `
+    Feature: improve the demo empty state.
+
+    Return JSON:
+    - repo
+    - commands to make the change
+    - verify checks
+    - HANDOFF.md for the reviewer
+  `,
+});
+
+const proof = await cloudbox.run(run);
+console.log(proof.artifact?.content);
+```
+
+Under the hood, `cloudbox.run()` is just `POST /api/runs`.
+
+## Single-call helper
+
+If you want the agent planning and Cloudbox execution in one call:
+
+```ts
+import { generateProof } from "cloudbox/generate-proof";
+
+const proof = await generateProof({
+  agent,
+  schema: CloudboxRun,
+  prompt: "Improve the demo empty state. Return repo, commands, verify, and HANDOFF.md.",
+  cloudboxUrl: "https://YOUR-CLOUDBOX.workers.dev",
+  token: process.env.CLOUDBOX_API_TOKEN,
+});
+```
+
+## Full example
+
+The repo includes:
+
+```sh
+node examples/bring-your-agent.mjs \
+  https://github.com/acoyfellow/cloudbox \
+  "echo agent-used-cloudbox > HANDOFF.md"
+```
+
+and a TypeScript workspace example in `examples/bring-your-agent.ts` with a pluggable `decide()` function.
+
+## What to return to the human
+
+Have your agent include the Cloudbox proof bundle in its final answer:
+
+- artifact path and content
+- changed files or diff summary
+- verify command results
+- runner readiness summary
+- risks or follow-up
+
+That keeps the human review loop explicit.

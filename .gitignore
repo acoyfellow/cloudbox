@@ -11,3 +11,6 @@ web/.astro/
 web/dist/
 
 .context/
+
+# Generated proof artifacts
+artifacts/

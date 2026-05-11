@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { cloudbox, unsurf } from "../src/run.ts";
+import { agentBrowser, cloudbox } from "../src/run.ts";
 
 async function createBuggyRepo() {
   const dir = await mkdtemp(join(tmpdir(), "cloudbox-fixture-"));
@@ -21,7 +21,7 @@ describe("cloudbox.run homepage API", () => {
       computer: "local",
       repo,
       bug: "add(1, 2) returns the wrong value",
-      tools: { browser: unsurf() },
+      tools: { browser: agentBrowser() },
       reproduce: "npm test",
       fix: "make add return a + b",
       verify: ["npm run build", "npm test"],

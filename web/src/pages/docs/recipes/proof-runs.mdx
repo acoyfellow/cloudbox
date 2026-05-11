@@ -1,0 +1,67 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Proof runs"
+eyebrow: "Recipe"
+description: "Use Cloudbox for clean-room repo checks that return a human-readable handoff, not just a pass/fail badge."
+---
+
+## Pattern
+
+A proof run is a small, bounded repo task:
+
+```txt
+repo -> commands -> verify -> artifact -> receipts
+```
+
+Use it when an agent or automation needs to show its work.
+
+## Example
+
+```json
+{
+  "repo": "https://github.com/you/app",
+  "commands": [
+    "pnpm install --ignore-scripts",
+    "pnpm run build",
+    "printf 'build: pass\\n' > HANDOFF.md"
+  ],
+  "verify": ["test -s HANDOFF.md"],
+  "artifact": "HANDOFF.md"
+}
+```
+
+The important bit is causality: the command writes the artifact, verification checks it, and Cloudbox returns the artifact with receipts.
+
+## Good artifacts
+
+Good artifacts are short and reviewable:
+
+```md
+# Handoff
+
+Task: upgrade dependencies
+
+Changed:
+- package.json
+- pnpm-lock.yaml
+
+Verified:
+- pnpm run build
+- pnpm test
+
+Risks:
+- browser tests not run
+```
+
+## Good verification
+
+Verification should prove the task, not just run generic checks:
+
+- `pnpm run build`
+- `pnpm test`
+- `grep -q 'new copy' web/src/components/Playground.tsx`
+- `test -s HANDOFF.md`
+
+## Failure is still useful
+
+If verification fails, keep the receipts and return a failure artifact when possible. A failed proof run should still tell the human what happened and what to try next.
