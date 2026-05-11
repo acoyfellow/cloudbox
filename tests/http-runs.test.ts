@@ -125,9 +125,21 @@ describe("/api/runs auth and demo policy", () => {
     expect(body.error).toBe("bad_run");
   });
 
-  it("rejects demo commands that try redirection or process substitution", async () => {
+  it("allows the curated demo artifact write", async () => {
+    const response = await api.fetch(
+      request({ ...validRun, commands: ["echo cloudbox-container-ok > HANDOFF.md"] }, { "x-cloudbox-demo": "1" }),
+      {},
+    );
+    const body = await bodyOf(response);
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("runner_unavailable");
+  });
+
+  it("rejects demo commands that try arbitrary redirection or process substitution", async () => {
     for (const evil of [
       "echo hi > /tmp/x",
+      "echo hi > package.json",
+      "echo hi >> HANDOFF.md",
       "echo hi < /etc/passwd",
       "echo $(whoami)",
       "echo hi\nrm -rf /",

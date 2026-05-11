@@ -125,7 +125,10 @@ function isAllowedDemoRun(input: ContainerRunRequest | null): boolean {
   // Reject shell metacharacters that could chain into other commands. Demo runs
   // are sandboxed to a curated allow-list; block obvious injection attempts so
   // a permissive prefix like `echo ` cannot smuggle additional commands.
-  if (commands.some((cmd) => /[;&|`$<>\n\r\\]/.test(cmd))) return false;
+  // A single `echo ... > HANDOFF.md` is allowed so the hosted demo can create
+  // the artifact it returns, but arbitrary redirection remains blocked.
+  if (commands.some((cmd) => /[;&|`$\n\r\\]/.test(cmd))) return false;
+  if (commands.some((cmd) => /[<>]/.test(cmd) && !/^echo [A-Za-z0-9 _.,:-]+ > HANDOFF\.md$/.test(cmd))) return false;
   return !!input.repo && /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(input.repo);
 }
 

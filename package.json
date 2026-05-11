@@ -4,6 +4,11 @@
   "description": "Real Cloudflare workspaces for agents: repo runs, files, artifacts, receipts, and grading.",
   "private": true,
   "type": "module",
+  "exports": {
+    "./client": "./src/client.ts",
+    "./generate-proof": "./src/generate-proof.ts",
+    "./agent-computer": "./src/agent-computer.ts"
+  },
   "scripts": {
     "build": "bun --filter @cloudbox/web build",
     "dev": "node scripts/dev.mjs",
