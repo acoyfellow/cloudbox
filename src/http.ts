@@ -79,7 +79,7 @@ api.post("/api/runs", async (c) => {
     await recordRun(c.env.DB, { id: runId, input, result, status: result.ok ? "passed" : "failed" });
     return c.json({ runId, ...result }, result.ok ? 200 : 422);
   } catch (error) {
-    const result = { ok: false, error: "runner_error", detail: String(error instanceof Error ? error.message : error) };
+    const result = { ok: false, error: "runner_error", detail: String(error instanceof Error ? error.stack ?? error.message : error) };
     await recordRun(c.env.DB, { id: runId, input, result, status: "error" });
     return c.json({ runId, ...result }, 500);
   }
