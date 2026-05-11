@@ -15,7 +15,12 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   output: "server",
   adapter: cloudflare({
-    platformProxy: { enabled: true },
+    platformProxy: {
+      enabled: true,
+      configPath: process.env.WRANGLER_CONFIG ?? "../wrangler.jsonc",
+      persist: { path: "../.wrangler/state" },
+      remoteBindings: false,
+    },
     workerEntryPoint: {
       path: "src/worker.ts",
       namedExports: ["ComputerDO", "CloudboxRunner"],

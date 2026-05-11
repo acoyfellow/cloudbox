@@ -31,8 +31,8 @@ writeFileSync(tempConfig, `${JSON.stringify(config, null, 2)}\n`);
 
 const child = spawn(
   "bun",
-  ["--filter", "@cloudbox/web", "dev", "--", "--config", tempConfig, ...process.argv.slice(2)],
-  { cwd: root, stdio: "inherit", env: process.env },
+  ["--filter", "@cloudbox/web", "dev", "--", "--host", "127.0.0.1", ...process.argv.slice(2)],
+  { cwd: root, stdio: "inherit", env: { ...process.env, WRANGLER_CONFIG: tempConfig } },
 );
 
 child.on("exit", (code, signal) => {
