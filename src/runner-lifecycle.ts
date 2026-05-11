@@ -1,3 +1,5 @@
+import { Effect } from "effect";
+
 export type RunnerEvent =
   | { type: "runner.container.missing"; ts: string }
   | { type: "runner.container.start"; ts: string; alreadyRunning: boolean }
@@ -27,7 +29,7 @@ export class RunnerLifecycleError extends Error {
 
 const DEFAULT_DELAYS_MS = [100, 250, 500, 1_000, 2_000, 3_000, 5_000];
 
-export async function fetchWithRunnerLifecycle(args: {
+export function runnerLifecycle(args: {
   container?: ContainerHandle;
   request: Request;
   port?: number;
@@ -35,54 +37,64 @@ export async function fetchWithRunnerLifecycle(args: {
   delaysMs?: number[];
   now?: () => number;
   isoNow?: () => string;
-}): Promise<{ response: Response; events: RunnerEvent[] }> {
-  const events: RunnerEvent[] = [];
-  const port = args.port ?? 8080;
-  const url = args.url ?? "http://container/run";
-  const delays = args.delaysMs ?? DEFAULT_DELAYS_MS;
-  const now = args.now ?? Date.now;
-  const isoNow = args.isoNow ?? (() => new Date().toISOString());
-  const startedAt = now();
-  const emit = (event: RunnerEvent) => events.push(event);
+}): Effect.Effect<{ response: Response; events: RunnerEvent[] }, RunnerLifecycleError> {
+  return Effect.gen(function* () {
+    const events: RunnerEvent[] = [];
+    const port = args.port ?? 8080;
+    const url = args.url ?? "http://container/run";
+    const delays = args.delaysMs ?? DEFAULT_DELAYS_MS;
+    const now = args.now ?? Date.now;
+    const isoNow = args.isoNow ?? (() => new Date().toISOString());
+    const startedAt = now();
+    const emit = (event: RunnerEvent) => events.push(event);
 
-  if (!args.container) {
-    emit({ type: "runner.container.missing", ts: isoNow() });
-    throw new RunnerLifecycleError("container_api_missing", "Cloudflare container API is not available", events, 500);
-  }
-
-  const alreadyRunning = args.container.running;
-  emit({ type: "runner.container.start", ts: isoNow(), alreadyRunning });
-  if (!alreadyRunning) {
-    args.container.start({ enableInternet: true, hardTimeout: 120_000 });
-    await args.container.setInactivityTimeout?.(60_000).catch(() => undefined);
-  }
-
-  const fetcher = args.container.getTcpPort(port);
-  let lastError = "unknown";
-  for (let attempt = 1; attempt <= delays.length + 1; attempt++) {
-    const elapsedMs = now() - startedAt;
-    try {
-      const response = await fetcher.fetch(new Request(url, args.request));
-      emit({ type: "runner.container.ready_attempt", ts: isoNow(), attempt, elapsedMs, ok: true });
-      emit({ type: "runner.container.ready", ts: isoNow(), attempt, elapsedMs });
-      emit({ type: "runner.response", ts: isoNow(), status: response.status, elapsedMs: now() - startedAt });
-      return { response, events };
-    } catch (error) {
-      lastError = errorMessage(error);
-      emit({ type: "runner.container.ready_attempt", ts: isoNow(), attempt, elapsedMs, ok: false, error: lastError });
-      const delay = delays[attempt - 1];
-      if (delay === undefined) break;
-      await sleep(delay);
+    if (!args.container) {
+      emit({ type: "runner.container.missing", ts: isoNow() });
+      return yield* Effect.fail(new RunnerLifecycleError("container_api_missing", "Cloudflare container API is not available", events, 500));
     }
-  }
 
-  const elapsedMs = now() - startedAt;
-  emit({ type: "runner.container.not_ready", ts: isoNow(), attempts: delays.length + 1, elapsedMs, error: lastError });
-  throw new RunnerLifecycleError("container_not_ready", lastError, events, 503);
+    const alreadyRunning = args.container.running;
+    emit({ type: "runner.container.start", ts: isoNow(), alreadyRunning });
+    if (!alreadyRunning) {
+      args.container.start({ enableInternet: true, hardTimeout: 120_000 });
+      yield* Effect.promise(() => args.container?.setInactivityTimeout?.(60_000).catch(() => undefined) ?? Promise.resolve());
+    }
+
+    const fetcher = args.container.getTcpPort(port);
+    let lastError = "unknown";
+    for (let attempt = 1; attempt <= delays.length + 1; attempt++) {
+      const elapsedMs = now() - startedAt;
+      const response = yield* Effect.tryPromise({
+        try: () => fetcher.fetch(new Request(url, args.request)),
+        catch: (error) => error,
+      }).pipe(
+        Effect.matchEffect({
+          onFailure: (error) => {
+            lastError = errorMessage(error);
+            emit({ type: "runner.container.ready_attempt", ts: isoNow(), attempt, elapsedMs, ok: false, error: lastError });
+            const delay = delays[attempt - 1];
+            return delay === undefined ? Effect.succeed(undefined) : Effect.sleep(delay).pipe(Effect.as(undefined));
+          },
+          onSuccess: (response) => Effect.succeed(response),
+        }),
+      );
+
+      if (response) {
+        emit({ type: "runner.container.ready_attempt", ts: isoNow(), attempt, elapsedMs, ok: true });
+        emit({ type: "runner.container.ready", ts: isoNow(), attempt, elapsedMs });
+        emit({ type: "runner.response", ts: isoNow(), status: response.status, elapsedMs: now() - startedAt });
+        return { response, events };
+      }
+    }
+
+    const elapsedMs = now() - startedAt;
+    emit({ type: "runner.container.not_ready", ts: isoNow(), attempts: delays.length + 1, elapsedMs, error: lastError });
+    return yield* Effect.fail(new RunnerLifecycleError("container_not_ready", lastError, events, 503));
+  });
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+export function fetchWithRunnerLifecycle(args: Parameters<typeof runnerLifecycle>[0]): Promise<{ response: Response; events: RunnerEvent[] }> {
+  return Effect.runPromise(runnerLifecycle(args));
 }
 
 function errorMessage(error: unknown): string {
