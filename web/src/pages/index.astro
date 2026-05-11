@@ -47,21 +47,18 @@ const runs = [
           and receipt-backed runs for your agents. Try the demo, read the docs, then deploy it to your account.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
-          <button
-            type="button"
-            data-copy-prompt
-            data-prompt="Use Cloudbox to run this repo in a fresh Cloudflare Container. Clone the repo, run the relevant install/build/test commands, record receipts, and return one artifact I can inspect. Start at https://cloudbox.coey.dev/docs/quickstart"
-            class="inline-flex items-center gap-2 rounded-md bg-[#f38020] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#faae40]"
-          >
-            Copy agent prompt
-          </button>
           <a
             href="/demo"
-            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
+            class="inline-flex items-center gap-2 rounded-md bg-[#f38020] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#faae40]"
           >
             Try demo
           </a>
-
+          <a
+            href="/docs"
+            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
+          >
+            Browse docs
+          </a>
         </div>
       </div>
       </div>
@@ -164,17 +161,4 @@ const runs = [
       <span>; built for real repo work on Cloudflare Containers, tight feedback loops, and human-readable proof.</span>
     </footer>
   </main>
-  <script>
-    document.querySelectorAll("[data-copy-prompt]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const prompt = button.getAttribute("data-prompt") ?? "";
-        await navigator.clipboard.writeText(prompt);
-        const original = button.textContent;
-        button.textContent = "Copied prompt";
-        setTimeout(() => {
-          button.textContent = original;
-        }, 1600);
-      });
-    });
-  </script>
 </Base>
