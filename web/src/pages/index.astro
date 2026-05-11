@@ -38,14 +38,7 @@ const runs = [
   <main class="mx-auto max-w-6xl overflow-x-clip px-4 py-14 md:py-20">
     <section class="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
       <div class="max-w-2xl">
-        <div class="mb-6 inline-grid size-16 place-items-center rounded-2xl border border-orange-200 bg-orange-50" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="3" width="18" height="18" rx="4" fill="#F6821F" />
-            <path d="M8 8h8v8H8z" fill="#FBAD41" />
-            <path d="M10 10h6v6h-6z" fill="#FFF7E8" opacity="0.82" />
-          </svg>
-        </div>
-        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Deploy Cloudbox</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Give your agent a fresh computer and a proof trail</p>
         <h1 class="mt-4 text-4xl font-semibold tracking-tight text-kumo-default sm:text-5xl md:text-6xl">
           Agent workspaces with inspectable proof.
         </h1>
@@ -54,6 +47,14 @@ const runs = [
           and receipt-backed runs for your agents. Try the demo, read the docs, then deploy it to your account.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
+          <button
+            type="button"
+            data-copy-prompt
+            data-prompt="Use Cloudbox to run this repo in a fresh Cloudflare Container. Clone the repo, run the relevant install/build/test commands, record receipts, and return one artifact I can inspect. Start at https://cloudbox.coey.dev/docs/quickstart"
+            class="inline-flex items-center gap-2 rounded-md bg-[#f38020] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#faae40]"
+          >
+            Copy agent prompt
+          </button>
           <a
             href="/demo"
             class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
@@ -62,12 +63,9 @@ const runs = [
           </a>
           <a
             href="https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox"
-            class="inline-flex items-center gap-2 rounded-md bg-[#f38020] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#faae40]"
+            class="inline-flex items-center gap-2 rounded-md border border-kumo-line px-4 py-2 text-sm font-medium text-kumo-default hover:bg-kumo-elevated"
           >
             Deploy to Cloudflare
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
-              <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"></path>
-            </svg>
           </a>
         </div>
       </div>
@@ -171,4 +169,17 @@ const runs = [
       <span>; built for real repo work on Cloudflare Containers, tight feedback loops, and human-readable proof.</span>
     </footer>
   </main>
+  <script>
+    document.querySelectorAll("[data-copy-prompt]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const prompt = button.getAttribute("data-prompt") ?? "";
+        await navigator.clipboard.writeText(prompt);
+        const original = button.textContent;
+        button.textContent = "Copied prompt";
+        setTimeout(() => {
+          button.textContent = original;
+        }, 1600);
+      });
+    });
+  </script>
 </Base>
