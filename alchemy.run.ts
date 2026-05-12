@@ -51,7 +51,6 @@ const runnerName = process.env.CLOUDBOX_RUNNER_NAME || (isProd ? "cloudbox-runne
 const CLOUDBOX_RUNNER = await Container(runnerResourceId, {
   name: runnerName,
   className: "CloudboxRunner",
-  scriptName: "__cloudbox-container-app-only__",
   build: {
     context: "./runner",
     dockerfile: "Dockerfile",
