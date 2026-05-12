@@ -6,8 +6,14 @@ class FakeStmt {
   values: unknown[] = [];
   bind(...values: unknown[]) { this.values = values; return this; }
   async run() {
-    if (this.sql.startsWith("INSERT")) {
-      const [id, createdAt, repo, status, artifact, result] = this.values as string[];
+    if (this.sql.startsWith("INSERT") && this.sql.includes("INTO runs")) {
+      const values = this.values as string[];
+      const [id] = values;
+      const createdAt = values[3] ?? values[1];
+      const repo = values[5] ?? values[2];
+      const status = values[6] ?? values[3];
+      const artifact = values[7] ?? values[4];
+      const result = values[8] ?? values[5];
       this.db.rows.set(id, { id, createdAt, repo, status, artifact, result });
     }
     return { success: true };

@@ -175,15 +175,21 @@ async function recordRun(db: D1Database | undefined, row: { id: string; input: C
   if (!db || !row.input) return;
   await ensureRunsTable(db);
   const artifact = typeof row.input.artifact === "string" ? row.input.artifact : null;
-  await db.prepare("INSERT OR REPLACE INTO runs (id, created_at, repo, status, artifact, result) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(row.id, new Date().toISOString(), row.input.repo, row.status, artifact, JSON.stringify(row.result).slice(0, 200_000))
+  const now = new Date().toISOString();
+  if (typeof (db as any).batch === "function") {
+    await db.prepare("INSERT OR IGNORE INTO computers (id, name, persona, mode, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind("api", "API runs", "cloudbox", "container", "{}", now)
+      .run();
+  }
+  await db.prepare("INSERT OR REPLACE INTO runs (id, computer_id, mode, created_at, updated_at, repo, status, artifact, result) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(row.id, "api", "container", now, now, row.input.repo, row.status, artifact, JSON.stringify(row.result).slice(0, 200_000))
     .run();
 }
 
 async function listRuns(db?: D1Database): Promise<Omit<RunRecord, "result">[]> {
   if (!db) return [];
   await ensureRunsTable(db);
-  const result = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact FROM runs ORDER BY created_at DESC LIMIT 20").all<Omit<RunRecord, "result">>();
+  const result = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact FROM runs WHERE id != 'api' ORDER BY created_at DESC LIMIT 20").all<Omit<RunRecord, "result">>();
   return result.results ?? [];
 }
 
