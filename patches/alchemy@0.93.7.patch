@@ -18,3 +18,18 @@ index 8c29e1ca11f18a766bd7e1d7c0c20254a018c986..a4ee91d43dfc593a8ce0d2fe928f7a74
        }
      } else if (prevBinding.class_name !== newBinding.className) {
        meta.migrations!.renamed_classes!.push({
+diff --git a/src/cloudflare/worker.ts b/src/cloudflare/worker.ts
+index 5534cee3fe75cf6a004108d8640f3dad54cadd9c..fd43196f11fc250634073fa4149c0fbf7f6c97bc 100644
+--- a/src/cloudflare/worker.ts
++++ b/src/cloudflare/worker.ts
+@@ -1786,6 +1786,10 @@ async function prepareWorkerUpload(
+           : undefined,
+       };
+ 
++  if (process.env.ALCHEMY_DEBUG_WORKER_METADATA === "1") {
++    console.log("ALCHEMY_WORKER_MIGRATIONS", JSON.stringify(finalMetadata.migrations ?? null));
++  }
++
+   body.append(
+     "metadata",
+     new Blob([JSON.stringify(finalMetadata)], {
