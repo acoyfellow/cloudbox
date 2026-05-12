@@ -1,0 +1,20 @@
+diff --git a/src/cloudflare/worker-metadata.ts b/src/cloudflare/worker-metadata.ts
+index 8c29e1ca11f18a766bd7e1d7c0c20254a018c986..a4ee91d43dfc593a8ce0d2fe928f7a747980262b 100644
+--- a/src/cloudflare/worker-metadata.ts
++++ b/src/cloudflare/worker-metadata.ts
+@@ -709,9 +709,13 @@ export async function prepareWorkerMetadata(
+ 
+     if (!prevBinding) {
+       if (newBinding.sqlite) {
+-        meta.migrations!.new_sqlite_classes!.push(newBinding.className);
++        if (!meta.migrations!.new_sqlite_classes!.includes(newBinding.className)) {
++          meta.migrations!.new_sqlite_classes!.push(newBinding.className);
++        }
+       } else {
+-        meta.migrations!.new_classes!.push(newBinding.className);
++        if (!meta.migrations!.new_classes!.includes(newBinding.className)) {
++          meta.migrations!.new_classes!.push(newBinding.className);
++        }
+       }
+     } else if (prevBinding.class_name !== newBinding.className) {
+       meta.migrations!.renamed_classes!.push({
