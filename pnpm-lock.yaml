@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   alchemy@0.93.7:
-    hash: bac48f55c670ae6e08f9cfa010d92cc16aaee32c29de20d81983ca335a2b7c16
+    hash: d4295073d245756fa6c20f9da72917411f90ea2fd4d95bf01c24a265d4237544
     path: patches/alchemy@0.93.7.patch
 
 importers:
@@ -15,7 +15,7 @@ importers:
     dependencies:
       alchemy:
         specifier: ^0.93.7
-        version: 0.93.7(patch_hash=bac48f55c670ae6e08f9cfa010d92cc16aaee32c29de20d81983ca335a2b7c16)(@astrojs/cloudflare@12.6.13(@types/node@24.12.3)(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(vite@6.4.2(@types/node@24.12.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(workerd@1.20260507.1)
+        version: 0.93.7(patch_hash=d4295073d245756fa6c20f9da72917411f90ea2fd4d95bf01c24a265d4237544)(@astrojs/cloudflare@12.6.13(@types/node@24.12.3)(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(vite@6.4.2(@types/node@24.12.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(workerd@1.20260507.1)
       effect:
         specifier: ^4.0.0-beta.58
         version: 4.0.0-beta.64
@@ -6123,7 +6123,7 @@ snapshots:
 
   acorn@8.16.0: {}
 
-  alchemy@0.93.7(patch_hash=bac48f55c670ae6e08f9cfa010d92cc16aaee32c29de20d81983ca335a2b7c16)(@astrojs/cloudflare@12.6.13(@types/node@24.12.3)(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(vite@6.4.2(@types/node@24.12.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(workerd@1.20260507.1):
+  alchemy@0.93.7(patch_hash=d4295073d245756fa6c20f9da72917411f90ea2fd4d95bf01c24a265d4237544)(@astrojs/cloudflare@12.6.13(@types/node@24.12.3)(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(astro@5.18.1(@types/node@24.12.3)(aws4fetch@1.0.20)(ioredis@5.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(typescript@5.9.3)(yaml@2.8.4))(vite@6.4.2(@types/node@24.12.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.8.4))(workerd@1.20260507.1):
     dependencies:
       '@aws-sdk/credential-providers': 3.1045.0
       '@cloudflare/unenv-preset': 2.7.7(unenv@2.0.0-rc.21)(workerd@1.20260507.1)

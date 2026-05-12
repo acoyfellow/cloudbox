@@ -1,3 +1,17 @@
+diff --git a/lib/cloudflare/worker.js b/lib/cloudflare/worker.js
+index 12668266c5390ab6c933d75e5c754c150364809f..39085f7614f917bc0c3d369c4f80e483b0dcfa41 100644
+--- a/lib/cloudflare/worker.js
++++ b/lib/cloudflare/worker.js
+@@ -660,6 +660,9 @@ async function prepareWorkerUpload(api, props) {
+                 }
+                 : undefined,
+         };
++    if (process.env.ALCHEMY_DEBUG_WORKER_METADATA === "1") {
++        console.log("ALCHEMY_WORKER_MIGRATIONS", JSON.stringify(finalMetadata.migrations ?? null));
++    }
+     body.append("metadata", new Blob([JSON.stringify(finalMetadata)], {
+         type: "application/json",
+     }));
 diff --git a/src/cloudflare/worker-metadata.ts b/src/cloudflare/worker-metadata.ts
 index 8c29e1ca11f18a766bd7e1d7c0c20254a018c986..a4ee91d43dfc593a8ce0d2fe928f7a747980262b 100644
 --- a/src/cloudflare/worker-metadata.ts
