@@ -4,7 +4,7 @@ import { fetchWithRunnerLifecycle, RunnerLifecycleError, type ContainerHandle } 
 
 type ContainerState = DurableObjectState & { container?: ContainerHandle };
 
-export class CloudboxRunner extends DurableObject {
+export class CloudboxRunnerV2 extends DurableObject {
   state: ContainerState;
 
   constructor(ctx: DurableObjectState, env: Record<string, unknown>) {

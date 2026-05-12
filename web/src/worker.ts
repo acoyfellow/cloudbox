@@ -11,7 +11,7 @@ import { App } from "astro/app";
 import { handle } from "@astrojs/cloudflare/handler";
 import { ComputerDO } from "../../src/computer-do.ts";
 import { api } from "../../src/http.ts";
-import { CloudboxRunner } from "../../src/runner-do.ts";
+import { CloudboxRunnerV2 } from "../../src/runner-do.ts";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -48,6 +48,6 @@ export function createExports(manifest: ConstructorParameters<typeof App>[0]) {
       },
     },
     ComputerDO,
-    CloudboxRunner,
+    CloudboxRunnerV2,
   };
 }
