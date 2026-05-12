@@ -3,12 +3,16 @@ name: reset-alchemy-state
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: "get, list, or delete"
+        required: true
+        default: "delete"
       key:
-        description: "Exact Alchemy state key to delete"
+        description: "Alchemy state key"
         required: true
         default: "cloudbox/prod/cloudbox-worker/cloudbox-runner"
       confirm:
-        description: "Type DELETE to confirm"
+        description: "Type DELETE to delete; anything for get/list"
         required: true
 
 permissions:
@@ -23,8 +27,8 @@ env:
   ALCHEMY_STATE_SCRIPT: cloudbox-state
 
 jobs:
-  delete-key:
-    if: ${{ github.event.inputs.confirm == 'DELETE' }}
+  state:
+    if: ${{ github.event.inputs.action != 'delete' || github.event.inputs.confirm == 'DELETE' }}
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -32,5 +36,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Delete stale Alchemy key
-        run: node scripts/alchemy-state-delete.mjs "${{ github.event.inputs.key }}"
+      - name: Call Alchemy state
+        run: node scripts/alchemy-state-delete.mjs "${{ github.event.inputs.action }}" "${{ github.event.inputs.key }}"
