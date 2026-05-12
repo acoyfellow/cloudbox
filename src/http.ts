@@ -163,6 +163,12 @@ async function ensureRunsTable(db?: D1Database): Promise<void> {
     artifact TEXT,
     result TEXT NOT NULL
   )`).run();
+  const columns = await db.prepare("PRAGMA table_info(runs)").all<{ name: string }>();
+  const names = new Set((columns.results ?? []).map((column) => column.name));
+  if (!names.has("repo")) await db.prepare("ALTER TABLE runs ADD COLUMN repo TEXT NOT NULL DEFAULT ''").run();
+  if (!names.has("status")) await db.prepare("ALTER TABLE runs ADD COLUMN status TEXT NOT NULL DEFAULT 'unknown'").run();
+  if (!names.has("artifact")) await db.prepare("ALTER TABLE runs ADD COLUMN artifact TEXT").run();
+  if (!names.has("result")) await db.prepare("ALTER TABLE runs ADD COLUMN result TEXT NOT NULL DEFAULT '{}'").run();
 }
 
 async function recordRun(db: D1Database | undefined, row: { id: string; input: ContainerRunRequest | null; result: unknown; status: string }): Promise<void> {
