@@ -52,12 +52,6 @@
       "new_sqlite_classes": [
         "ComputerDO"
       ]
-    },
-    {
-      "tag": "v2",
-      "new_sqlite_classes": [
-        "CloudboxRunner"
-      ]
     }
   ],
   "containers": [

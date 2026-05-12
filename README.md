@@ -76,6 +76,7 @@ Production resource names:
 Worker:          cloudbox
 Container:       cloudbox-runner
 Runner DO class: CloudboxRunner
+Runner container app: cloudbox-runner-v2
 Workspace DO:    ComputerDO (CLOUDBOX_COMPUTER)
 D1:              cloudbox-prod
 R2:              cloudbox-artifacts
