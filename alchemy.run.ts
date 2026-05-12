@@ -69,7 +69,7 @@ export const WORKER = await Worker("cloudbox-worker", {
   compatibilityFlags: ["nodejs_compat"],
   observability: { enabled: true },
   url: true,
-  domains: isProd ? ["cloudbox.coey.dev"] : [],
+  domains: isProd ? [{ domainName: "cloudbox.coey.dev", overrideExistingOrigin: true, adopt: true }] : [],
   dev: { remote: true },
   bindings: {
     ASSETS: await Assets({ path: "./web/dist" }),
