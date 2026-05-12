@@ -36,6 +36,8 @@ Cloudflare Container (cloudbox-runner)
 
 The long-lived control plane is the Worker. The real execution backend is a Cloudflare Container running Linux tools like `git`, `node`, `bun`, and `pnpm`. The `CloudboxRunner` DO owns container lifecycle so a hot container can serve repeated requests; lifecycle events ride back on every response as `runnerReceipts`.
 
+Runner size is a deploy-time choice. Set `CLOUDBOX_RUNNER_INSTANCE_TYPE` to the largest instance type your account supports and `CLOUDBOX_RUNNER_MAX_INSTANCES` for concurrency. Heavy repos need headroom.
+
 <div class="not-prose rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
   <div class="grid gap-3 sm:grid-cols-3">
     <div class="rounded-lg border border-kumo-line bg-kumo-base p-3">

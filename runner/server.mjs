@@ -22,6 +22,30 @@ function assertSafePath(root, path) {
   return full;
 }
 
+const SECRET_KEYS = ["CLOUDBOX_GITLAB_TOKEN", "GITLAB_TOKEN", "NPM_TOKEN"];
+
+function redact(value) {
+  let out = String(value ?? "");
+  for (const key of SECRET_KEYS) {
+    const secret = process.env[key];
+    if (secret) out = out.split(secret).join(`[redacted:${key}]`);
+  }
+  return out;
+}
+
+function cloneUrl(repo, auth) {
+  if (auth === "gitlab") {
+    const token = process.env.CLOUDBOX_GITLAB_TOKEN || process.env.GITLAB_TOKEN;
+    if (!token) throw new Error("gitlab auth requested but CLOUDBOX_GITLAB_TOKEN is not configured");
+    const url = new URL(repo);
+    if (url.hostname !== "gitlab.cfdata.org") throw new Error("gitlab auth only supports gitlab.cfdata.org");
+    url.username = "oauth2";
+    url.password = token;
+    return url.toString();
+  }
+  return repo;
+}
+
 function run(cmd, cwd, timeoutMs = MAX_TIMEOUT_MS) {
   return new Promise((resolveRun) => {
     const startedAt = new Date().toISOString();
@@ -39,7 +63,7 @@ function run(cmd, cwd, timeoutMs = MAX_TIMEOUT_MS) {
     });
     child.on("close", (code, signal) => {
       clearTimeout(timer);
-      resolveRun({ cmd, code, signal, stdout, stderr, startedAt, finishedAt: new Date().toISOString() });
+      resolveRun({ cmd: redact(cmd), code, signal, stdout: redact(stdout), stderr: redact(stderr), startedAt, finishedAt: new Date().toISOString() });
     });
   });
 }
@@ -55,7 +79,8 @@ async function handleRun(input) {
   const workspace = join(root, "repo");
   const receipts = [];
   try {
-    const clone = await run(`git clone --depth=1 ${JSON.stringify(input.repo)} repo`, root, input.timeoutMs);
+    const ref = typeof input.ref === "string" && input.ref ? ` --branch ${JSON.stringify(input.ref)}` : "";
+    const clone = await run(`git clone --depth=1${ref} ${JSON.stringify(cloneUrl(input.repo, input.auth))} repo`, root, input.timeoutMs);
     receipts.push({ type: "clone", ...clone });
     if (clone.code !== 0) return { ok: false, workspace: root, receipts };
 

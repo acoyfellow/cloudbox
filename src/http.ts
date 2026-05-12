@@ -135,7 +135,11 @@ function isAllowedDemoRun(input: ContainerRunRequest | null): boolean {
 function validateRun(input: ContainerRunRequest | null): Response | null {
   if (!input || typeof input !== "object") return jsonErrorResponse(400, "bad_run", "expected JSON body");
   if (!input.repo || typeof input.repo !== "string") return jsonErrorResponse(400, "bad_run", "repo is required");
-  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(input.repo)) return jsonErrorResponse(400, "bad_run", "repo must be a public GitHub HTTPS repo URL");
+  const isGithub = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(input.repo);
+  const isGitlab = /^https:\/\/gitlab\.cfdata\.org\/[A-Za-z0-9_./-]+(?:\.git)?$/.test(input.repo);
+  if (!isGithub && !(input.auth === "gitlab" && isGitlab)) return jsonErrorResponse(400, "bad_run", "repo must be a public GitHub URL or a gitlab.cfdata.org URL with auth=gitlab");
+  if (input.auth !== undefined && input.auth !== "none" && input.auth !== "gitlab") return jsonErrorResponse(400, "bad_run", "auth must be none or gitlab");
+  if (input.ref !== undefined && (typeof input.ref !== "string" || input.ref.length > 120 || /[^A-Za-z0-9_./-]/.test(input.ref))) return jsonErrorResponse(400, "bad_run", "ref must be a short git ref");
   for (const key of ["commands", "verify"] as const) {
     const list = input[key];
     if (list !== undefined && !Array.isArray(list)) return jsonErrorResponse(400, "bad_run", `${key} must be an array`);

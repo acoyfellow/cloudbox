@@ -1,5 +1,7 @@
 export type ContainerRunRequest = {
   repo: string;
+  ref?: string;
+  auth?: "none" | "gitlab";
   commands?: string[];
   verify?: string[];
   artifact?: string;

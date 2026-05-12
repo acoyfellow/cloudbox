@@ -45,19 +45,19 @@ const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
   sqlite: true,
 });
 
-const runnerResourceId = process.env.CLOUDBOX_RUNNER_RESOURCE_ID || "cloudbox-runner";
 const runnerName = process.env.CLOUDBOX_RUNNER_NAME || (isProd ? "cloudbox-runner" : `${app.stage}-cloudbox-runner`);
 
-const CLOUDBOX_RUNNER = await Container(runnerResourceId, {
+const CLOUDBOX_RUNNER = await Container("cloudbox-runner", {
   name: runnerName,
   className: "CloudboxRunner",
   build: {
     context: "./runner",
     dockerfile: "Dockerfile",
   },
-  instanceType: "lite",
-  maxInstances: 2,
+  instanceType: process.env.CLOUDBOX_RUNNER_INSTANCE_TYPE || "lite",
+  maxInstances: Number(process.env.CLOUDBOX_RUNNER_MAX_INSTANCES || 2),
   adopt: true,
+  dev: { remote: true },
 });
 
 export const WORKER = await Worker("cloudbox-worker", {
@@ -69,6 +69,7 @@ export const WORKER = await Worker("cloudbox-worker", {
   observability: { enabled: true },
   url: true,
   domains: isProd ? ["cloudbox.coey.dev"] : [],
+  dev: { remote: true },
   bindings: {
     ASSETS: await Assets({ path: "./web/dist" }),
     DB,
@@ -78,6 +79,9 @@ export const WORKER = await Worker("cloudbox-worker", {
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
     ...(process.env.CLOUDBOX_API_TOKEN
       ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }
+      : {}),
+    ...(process.env.CLOUDBOX_GITLAB_TOKEN
+      ? { CLOUDBOX_GITLAB_TOKEN: alchemy.secret(process.env.CLOUDBOX_GITLAB_TOKEN) }
       : {}),
   },
 });

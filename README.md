@@ -82,6 +82,15 @@ R2:              cloudbox-artifacts
 State store:     alchemy-state-store
 ```
 
+Runner sizing is configurable at deploy time:
+
+```txt
+CLOUDBOX_RUNNER_INSTANCE_TYPE=standard   # or the largest instance type your account supports
+CLOUDBOX_RUNNER_MAX_INSTANCES=2
+```
+
+Use GitHub environment variables for sizing. The workflow defaults production to `standard`; local Alchemy fallback is `lite`.
+
 ## What a run looks like
 
 A run gives an agent a clean Linux container, a public repo, commands, verification, and an artifact to return. Cloudbox records the trail.
