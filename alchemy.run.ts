@@ -45,9 +45,10 @@ const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
   sqlite: true,
 });
 
-const runnerName = process.env.CLOUDBOX_RUNNER_NAME || (isProd ? "cloudbox-runner" : `${app.stage}-cloudbox-runner`);
+const runnerResourceId = process.env.CLOUDBOX_RUNNER_RESOURCE_ID || "cloudbox-runner";
+const runnerName = process.env.CLOUDBOX_RUNNER_NAME || (isProd ? "cloudbox-runner-v2" : `${app.stage}-cloudbox-runner`);
 
-const CLOUDBOX_RUNNER = await Container("cloudbox-runner", {
+const CLOUDBOX_RUNNER = await Container(runnerResourceId, {
   name: runnerName,
   className: "CloudboxRunner",
   build: {
