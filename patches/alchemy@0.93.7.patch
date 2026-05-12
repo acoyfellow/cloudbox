@@ -1,3 +1,13 @@
+diff --git a/bin/alchemy.js b/bin/alchemy.js
+index 5ea20a83ff000e45f9b71b8db425ffa828fdc181..b494a7c2028ee6a713051396d51f2b298cee2633 100755
+--- a/bin/alchemy.js
++++ b/bin/alchemy.js
+@@ -1,4 +1,5 @@
+ #!/usr/bin/env node
++if (process.env.ALCHEMY_DEBUG_WORKER_METADATA === "1") console.log("ALCHEMY_BIN_PATCH_ACTIVE");
+ import { createRequire } from "node:module";
+ import { EventEmitter, addAbortListener, on, once, setMaxListeners } from "node:events";
+ import childProcess, { ChildProcess, exec, execFile, spawn, spawnSync } from "node:child_process";
 diff --git a/lib/cloudflare/worker.js b/lib/cloudflare/worker.js
 index 12668266c5390ab6c933d75e5c754c150364809f..39085f7614f917bc0c3d369c4f80e483b0dcfa41 100644
 --- a/lib/cloudflare/worker.js
