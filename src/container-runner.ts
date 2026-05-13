@@ -2,6 +2,8 @@ export type ContainerRunRequest = {
   repo: string;
   ref?: string;
   auth?: "none" | "gitlab";
+  clone?: "shallow" | "blobless";
+  sparse?: string[];
   commands?: string[];
   verify?: string[];
   artifact?: string;

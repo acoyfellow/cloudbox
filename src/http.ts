@@ -139,6 +139,8 @@ function validateRun(input: ContainerRunRequest | null): Response | null {
   const isGitlab = /^https:\/\/gitlab\.cfdata\.org\/[A-Za-z0-9_./-]+(?:\.git)?$/.test(input.repo);
   if (!isGithub && !(input.auth === "gitlab" && isGitlab)) return jsonErrorResponse(400, "bad_run", "repo must be a public GitHub URL or a gitlab.cfdata.org URL with auth=gitlab");
   if (input.auth !== undefined && input.auth !== "none" && input.auth !== "gitlab") return jsonErrorResponse(400, "bad_run", "auth must be none or gitlab");
+  if (input.clone !== undefined && input.clone !== "shallow" && input.clone !== "blobless") return jsonErrorResponse(400, "bad_run", "clone must be shallow or blobless");
+  if (input.sparse !== undefined && (!Array.isArray(input.sparse) || input.sparse.length > 64 || input.sparse.some((path) => typeof path !== "string" || !path || path.length > 240 || path.startsWith("/") || path.split("/").includes("..") || /[\n\r`$\\]/.test(path)))) return jsonErrorResponse(400, "bad_run", "sparse must be safe relative paths");
   if (input.ref !== undefined && (typeof input.ref !== "string" || input.ref.length > 120 || /[^A-Za-z0-9_./-]/.test(input.ref))) return jsonErrorResponse(400, "bad_run", "ref must be a short git ref");
   for (const key of ["commands", "verify"] as const) {
     const list = input[key];

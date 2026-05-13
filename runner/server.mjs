@@ -46,6 +46,29 @@ function cloneUrl(repo, auth) {
   return repo;
 }
 
+function shell(value) {
+  return JSON.stringify(String(value));
+}
+
+export function normalizeCloneOptions(input) {
+  const strategy = input.clone === "shallow" ? "shallow" : "blobless";
+  const sparse = Array.isArray(input.sparse) ? input.sparse.map(String) : [];
+  if (sparse.length > 64) throw new Error("too many sparse paths");
+  for (const path of sparse) {
+    if (!path || path.length > 240 || path.includes("\0") || path.startsWith("/") || path.split("/").includes("..") || /[\n\r`$\\]/.test(path)) {
+      throw new Error(`invalid sparse path: ${path}`);
+    }
+  }
+  return { strategy, sparse };
+}
+
+export function buildCloneCommand(input, options = normalizeCloneOptions(input)) {
+  const ref = typeof input.ref === "string" && input.ref ? ` --branch ${shell(input.ref)}` : "";
+  const filter = options.strategy === "blobless" ? " --filter=blob:none" : "";
+  const sparse = options.sparse.length ? " --sparse --no-checkout" : "";
+  return `git clone --depth=1${filter}${sparse}${ref} ${shell(cloneUrl(input.repo, input.auth))} repo`;
+}
+
 function run(cmd, cwd, timeoutMs = MAX_TIMEOUT_MS) {
   return new Promise((resolveRun) => {
     const startedAt = new Date().toISOString();
@@ -79,10 +102,15 @@ async function handleRun(input) {
   const workspace = join(root, "repo");
   const receipts = [];
   try {
-    const ref = typeof input.ref === "string" && input.ref ? ` --branch ${JSON.stringify(input.ref)}` : "";
-    const clone = await run(`git clone --depth=1${ref} ${JSON.stringify(cloneUrl(input.repo, input.auth))} repo`, root, input.timeoutMs);
-    receipts.push({ type: "clone", ...clone });
+    const cloneOptions = normalizeCloneOptions(input);
+    const clone = await run(buildCloneCommand(input, cloneOptions), root, input.timeoutMs);
+    receipts.push({ type: "clone", strategy: cloneOptions.strategy, sparse: cloneOptions.sparse, ...clone });
     if (clone.code !== 0) return { ok: false, workspace: root, receipts };
+    if (cloneOptions.sparse.length) {
+      const sparse = await run(`git sparse-checkout set -- ${cloneOptions.sparse.map(shell).join(" ")} && git checkout`, workspace, input.timeoutMs);
+      receipts.push({ type: "sparse-checkout", ...sparse });
+      if (sparse.code !== 0) return { ok: false, workspace: root, receipts };
+    }
 
     for (const cmd of commands) receipts.push({ type: "command", ...(await run(String(cmd), workspace, input.timeoutMs)) });
     for (const cmd of verify) receipts.push({ type: "verify", ...(await run(String(cmd), workspace, input.timeoutMs)) });
