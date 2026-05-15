@@ -2,12 +2,18 @@
 import Base from "@/layouts/Base.astro";
 
 export interface Props {
-  title: string;
+  title?: string;
   description?: string;
   eyebrow?: string;
+  frontmatter?: { title?: string; description?: string; eyebrow?: string };
 }
 
-const { title, description, eyebrow } = Astro.props;
+// Astro MDX with `layout:` frontmatter passes props under `frontmatter`,
+// while `.astro` pages pass them directly. Support both.
+const fm = Astro.props.frontmatter ?? {};
+const title = Astro.props.title ?? fm.title ?? "Docs";
+const description = Astro.props.description ?? fm.description;
+const eyebrow = Astro.props.eyebrow ?? fm.eyebrow;
 const pathname = Astro.url.pathname;
 
 const sections = [
