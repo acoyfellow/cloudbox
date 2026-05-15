@@ -32,6 +32,7 @@
     "proof:launch": "node scripts/proof-launch-readiness.mjs",
     "proof:ci": "node scripts/proof-ci-smoke.mjs",
     "proof": "bun run proof:runner && bun run proof:launch && bun run proof:ci",
+    "og:build": "node scripts/build-og.mjs",
     "ci": "bun run check"
   },
   "workspaces": [
