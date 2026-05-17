@@ -1,11 +1,13 @@
 ---
 import Base from "@/layouts/Base.astro";
+import { api } from "../../../../src/http.ts";
 
 export const prerender = false;
 
 const runId = Astro.params.id ?? "";
 const origin = new URL(Astro.request.url).origin;
 const publicUrl = `${origin}/api/runs/${runId}/public`;
+const runtime = (Astro.locals as unknown as { runtime?: { env?: unknown } }).runtime;
 
 type Receipt = {
   type: string;
@@ -51,7 +53,13 @@ let fetchError: string | null = null;
 
 if (runId) {
   try {
-    const response = await fetch(publicUrl, { headers: { "user-agent": "cloudbox-runs-viewer" } });
+    // Call the same Hono router used by /api/* directly in-process. Workers
+    // block a Worker from fetching its own routes via HTTP (yields 522), so
+    // we invoke the handler with the runtime env binding instead.
+    const response = await api.fetch(
+      new Request(publicUrl),
+      runtime?.env as any,
+    );
     if (response.status === 200) {
       data = (await response.json()) as RunPayload;
     } else if (response.status === 404) {
