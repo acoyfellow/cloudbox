@@ -8,6 +8,8 @@ export type ContainerRunRequest = {
   verify?: string[];
   artifact?: string;
   timeoutMs?: number;
+  /** When true, the run is readable unauthenticated at GET /api/runs/:id/public and at /runs/:id. */
+  public?: boolean;
 };
 
 export type ContainerRunReceipt = {

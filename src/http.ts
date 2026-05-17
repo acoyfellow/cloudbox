@@ -64,6 +64,23 @@ api.get("/api/runs/:id", async (c) => {
   return row ? c.json(row) : jsonError(c, 404, "run_not_found", "run not found");
 });
 
+// Public, unauthenticated view of a run. Only returns the row when the run was
+// posted with `public: true`. IDs are random UUIDs so they're unguessable in
+// practice; opt-in keeps private runs from leaking by id.
+api.get("/api/runs/:id/public", async (c) => {
+  const row = await getRun(c.env.DB, c.req.param("id"));
+  if (!row || !row.isPublic) return jsonError(c, 404, "run_not_found", "run not found");
+  return c.json({
+    id: row.id,
+    createdAt: row.createdAt,
+    repo: row.repo,
+    status: row.status,
+    artifact: row.artifact,
+    input: row.input,
+    result: row.result,
+  });
+});
+
 api.post("/api/runs", async (c) => {
   const demo = c.req.raw.headers.get("x-cloudbox-demo") === "1";
   const auth = demo ? null : authorize(c.req.raw, null, c.env);
@@ -150,10 +167,20 @@ function validateRun(input: ContainerRunRequest | null): Response | null {
   }
   if (!input.commands?.length && !input.verify?.length) return jsonErrorResponse(400, "bad_run", "at least one command or verify command is required");
   if (input.artifact !== undefined && (typeof input.artifact !== "string" || input.artifact.length > 240)) return jsonErrorResponse(400, "bad_run", "artifact must be a short relative path");
+  if (input.public !== undefined && typeof input.public !== "boolean") return jsonErrorResponse(400, "bad_run", "public must be a boolean");
   return null;
 }
 
-type RunRecord = { id: string; createdAt: string; repo: string; status: string; artifact: string | null; result: unknown };
+type RunRecord = {
+  id: string;
+  createdAt: string;
+  repo: string;
+  status: string;
+  artifact: string | null;
+  isPublic: boolean;
+  input: ContainerRunRequest | null;
+  result: unknown;
+};
 
 async function ensureRunsTable(db?: D1Database): Promise<void> {
   if (!db) return;
@@ -171,35 +198,68 @@ async function ensureRunsTable(db?: D1Database): Promise<void> {
   if (!names.has("status")) await db.prepare("ALTER TABLE runs ADD COLUMN status TEXT NOT NULL DEFAULT 'unknown'").run();
   if (!names.has("artifact")) await db.prepare("ALTER TABLE runs ADD COLUMN artifact TEXT").run();
   if (!names.has("result")) await db.prepare("ALTER TABLE runs ADD COLUMN result TEXT NOT NULL DEFAULT '{}'").run();
+  if (!names.has("input")) await db.prepare("ALTER TABLE runs ADD COLUMN input TEXT").run();
+  if (!names.has("is_public")) await db.prepare("ALTER TABLE runs ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0").run();
 }
 
 async function recordRun(db: D1Database | undefined, row: { id: string; input: ContainerRunRequest | null; result: unknown; status: string }): Promise<void> {
   if (!db || !row.input) return;
   await ensureRunsTable(db);
   const artifact = typeof row.input.artifact === "string" ? row.input.artifact : null;
+  const isPublic = row.input.public === true ? 1 : 0;
   const now = new Date().toISOString();
   if (typeof (db as any).batch === "function") {
     await db.prepare("INSERT OR IGNORE INTO computers (id, name, persona, mode, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .bind("api", "API runs", "cloudbox", "container", "{}", now)
       .run();
   }
-  await db.prepare("INSERT OR REPLACE INTO runs (id, computer_id, mode, created_at, updated_at, repo, status, artifact, result) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(row.id, "api", "container", now, now, row.input.repo, row.status, artifact, JSON.stringify(row.result).slice(0, 200_000))
+  await db.prepare("INSERT OR REPLACE INTO runs (id, computer_id, mode, created_at, updated_at, repo, status, artifact, result, input, is_public) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(
+      row.id,
+      "api",
+      "container",
+      now,
+      now,
+      row.input.repo,
+      row.status,
+      artifact,
+      JSON.stringify(row.result).slice(0, 200_000),
+      JSON.stringify(row.input).slice(0, 20_000),
+      isPublic,
+    )
     .run();
 }
 
-async function listRuns(db?: D1Database): Promise<Omit<RunRecord, "result">[]> {
+async function listRuns(db?: D1Database): Promise<Pick<RunRecord, "id" | "createdAt" | "repo" | "status" | "artifact">[]> {
   if (!db) return [];
   await ensureRunsTable(db);
-  const result = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact FROM runs WHERE id != 'api' ORDER BY created_at DESC LIMIT 20").all<Omit<RunRecord, "result">>();
-  return result.results ?? [];
+  const result = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact FROM runs WHERE id != 'api' ORDER BY created_at DESC LIMIT 20").all<any>();
+  return (result.results ?? []) as any;
 }
 
 async function getRun(db: D1Database | undefined, id: string): Promise<RunRecord | null> {
   if (!db) return null;
   await ensureRunsTable(db);
-  const row = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact, result FROM runs WHERE id = ?").bind(id).first<any>();
-  return row ? { ...row, result: JSON.parse(row.result) } : null;
+  const row = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact, result, input, is_public as isPublic FROM runs WHERE id = ?").bind(id).first<any>();
+  if (!row) return null;
+  return {
+    id: row.id,
+    createdAt: row.createdAt,
+    repo: row.repo,
+    status: row.status,
+    artifact: row.artifact,
+    isPublic: row.isPublic === 1 || row.isPublic === true,
+    input: row.input ? (safeParse(row.input) as ContainerRunRequest | null) : null,
+    result: safeParse(row.result),
+  };
+}
+
+function safeParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 function jsonError(c: any, status: number, code: string, detail: string): Response {

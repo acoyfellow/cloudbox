@@ -7,19 +7,22 @@ class FakeStmt {
   bind(...values: unknown[]) { this.values = values; return this; }
   async run() {
     if (this.sql.startsWith("INSERT") && this.sql.includes("INTO runs")) {
-      const values = this.values as string[];
-      const [id] = values;
-      const createdAt = values[3] ?? values[1];
-      const repo = values[5] ?? values[2];
-      const status = values[6] ?? values[3];
-      const artifact = values[7] ?? values[4];
-      const result = values[8] ?? values[5];
-      this.db.rows.set(id, { id, createdAt, repo, status, artifact, result });
+      const values = this.values as unknown[];
+      // Order: id, computer_id, mode, created_at, updated_at, repo, status, artifact, result, input, is_public
+      const id = String(values[0]);
+      const createdAt = String(values[3]);
+      const repo = String(values[5]);
+      const status = String(values[6]);
+      const artifact = (values[7] as string | null) ?? null;
+      const result = String(values[8]);
+      const input = (values[9] as string | undefined) ?? null;
+      const isPublic = values[10] === 1 ? 1 : 0;
+      this.db.rows.set(id, { id, createdAt, repo, status, artifact, result, input, isPublic });
     }
     return { success: true };
   }
   async all<T>() {
-    return { results: [...this.db.rows.values()].map(({ result, ...row }) => row).slice(0, 20) as T[] };
+    return { results: [...this.db.rows.values()].map(({ result, input, isPublic, ...row }) => row).slice(0, 20) as T[] };
   }
   async first<T>() {
     const row = this.db.rows.get(String(this.values[0]));
@@ -63,5 +66,55 @@ describe("run history", () => {
     const detail = await api.fetch(new Request(`https://cloudbox.test/api/runs/${created.runId}`, { headers: { authorization: "Bearer t" } }), env);
     const detailBody = await detail.json() as any;
     expect(detailBody.result.ok).toBe(true);
+  });
+
+  it("does NOT expose private runs at /api/runs/:id/public", async () => {
+    const DB = new FakeD1() as any;
+    const env = { DB, CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["test -f HANDOFF.md"], artifact: "HANDOFF.md" }),
+    }), env);
+    const { runId } = await create.json() as any;
+
+    const pub = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/public`), env);
+    expect(pub.status).toBe(404);
+  });
+
+  it("exposes opt-in public runs unauthenticated and includes the input recipe", async () => {
+    const DB = new FakeD1() as any;
+    const env = { DB, CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({
+        repo: "https://github.com/acoyfellow/cloudbox",
+        verify: ["test -f HANDOFF.md"],
+        artifact: "HANDOFF.md",
+        public: true,
+      }),
+    }), env);
+    const { runId } = await create.json() as any;
+
+    const pub = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/public`), env);
+    expect(pub.status).toBe(200);
+    const body = await pub.json() as any;
+    expect(body.id).toBe(runId);
+    expect(body.repo).toBe("https://github.com/acoyfellow/cloudbox");
+    expect(body.input?.public).toBe(true);
+    expect(body.input?.artifact).toBe("HANDOFF.md");
+    expect(body.result.ok).toBe(true);
+  });
+
+  it("rejects non-boolean public flag with bad_run", async () => {
+    const env = { CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    const response = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], public: "yes" }),
+    }), env);
+    expect(response.status).toBe(400);
+    expect((await response.json() as any).error).toBe("bad_run");
   });
 });
