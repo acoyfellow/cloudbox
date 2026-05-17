@@ -1,0 +1,29 @@
+web/src/pages/runs/[id].astro
+  da31a58da6824240 1-275
+src/http.ts
+  da31a58da6824240 67-83,170,174-183,201-202,209,216-229,233,236-237,243-262
+tests/run-history.test.ts
+  da31a58da6824240 10-20,25,70-118
+src/container-runner.ts
+  da31a58da6824240 11-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "f159d0cfdc0ca6a3c2f6fcf985224eb362bdc7cc",
+  "prompts": {
+    "da31a58da6824240": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d37887feffeaN1gXG0409TID8",
+        "model": "anthropic/claude-opus-4-7"
+      },
+      "human_author": "Jordan Coeyman",
+      "messages": [],
+      "total_additions": 407,
+      "total_deletions": 17,
+      "accepted_lines": 407,
+      "overriden_lines": 0
+    }
+  }
+}
