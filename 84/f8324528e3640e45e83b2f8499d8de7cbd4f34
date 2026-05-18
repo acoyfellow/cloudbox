@@ -1,0 +1,25 @@
+web/src/components/Playground.tsx
+  da31a58da6824240 20-21,112-119
+src/http.ts
+  da31a58da6824240 94-100,102-104,107-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "84f8324528e3640e45e83b2f8499d8de7cbd4f34",
+  "prompts": {
+    "da31a58da6824240": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d37887feffeaN1gXG0409TID8",
+        "model": "anthropic/claude-opus-4-7"
+      },
+      "human_author": "Jordan Coeyman",
+      "messages": [],
+      "total_additions": 24,
+      "total_deletions": 5,
+      "accepted_lines": 24,
+      "overriden_lines": 0
+    }
+  }
+}
