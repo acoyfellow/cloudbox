@@ -91,14 +91,21 @@ api.post("/api/runs", async (c) => {
   if (demo && !isAllowedDemoRun(input)) return jsonError(c, 403, "demo_not_allowed", "demo runs only allow public GitHub repos with short echo/test commands");
   if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
   const runId = `run_${crypto.randomUUID()}`;
+  // Demo runs go through the curated allow-list (isAllowedDemoRun) so they
+  // are safe to share. Auto-mark them public so the hosted demo produces
+  // shareable proof URLs without the caller having to opt in.
+  const sharedInput: ContainerRunRequest = demo && input ? { ...input, public: true } : (input as ContainerRunRequest);
+  const publicUrl = (sharedInput?.public === true)
+    ? `${new URL(c.req.url).origin}/runs/${runId}`
+    : undefined;
   try {
-    const result = await runInContainer(c.env.CLOUDBOX_RUNNER, input as ContainerRunRequest);
-    await recordRun(c.env.DB, { id: runId, input, result, status: result.ok ? "passed" : "failed" });
-    return c.json({ runId, ...result }, result.ok ? 200 : 422);
+    const result = await runInContainer(c.env.CLOUDBOX_RUNNER, sharedInput);
+    await recordRun(c.env.DB, { id: runId, input: sharedInput, result, status: result.ok ? "passed" : "failed" });
+    return c.json({ runId, publicUrl, ...result }, result.ok ? 200 : 422);
   } catch (error) {
     const result = { ok: false, error: "runner_error", detail: String(error instanceof Error ? error.stack ?? error.message : error) };
-    await recordRun(c.env.DB, { id: runId, input, result, status: "error" });
-    return c.json({ runId, ...result }, 500);
+    await recordRun(c.env.DB, { id: runId, input: sharedInput, result, status: "error" });
+    return c.json({ runId, publicUrl, ...result }, 500);
   }
 });
 

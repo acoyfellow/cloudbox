@@ -17,6 +17,8 @@ type RunResponse = {
   error?: string;
   detail?: string;
   runnerReceipts?: RunnerLifecycleReceipt[];
+  runId?: string;
+  publicUrl?: string;
 };
 
 export default function Playground() {
@@ -105,6 +107,16 @@ export default function Playground() {
 
               {result.error || result.detail ? (
                 <div className="break-words rounded-lg border border-kumo-line bg-kumo-elevated p-3 text-sm text-kumo-danger">{result.detail ?? result.error}</div>
+              ) : null}
+
+              {result.publicUrl ? (
+                <a
+                  href={result.publicUrl}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-900 hover:bg-orange-100"
+                >
+                  <span>Share this run →</span>
+                  <span className="truncate font-mono text-xs text-orange-700">{result.publicUrl.replace(/^https?:\/\//, "")}</span>
+                </a>
               ) : null}
 
               {result.artifact ? (
