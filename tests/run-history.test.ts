@@ -107,14 +107,105 @@ describe("run history", () => {
     expect(body.result.ok).toBe(true);
   });
 
-  it("rejects non-boolean public flag with bad_run", async () => {
-    const env = { CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
-    const response = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+  it("routes live follow-up exec/read/write calls only for live runs", async () => {
+    const DB = new FakeD1() as any;
+    const calls: string[] = [];
+    const liveRunner = {
+      fetch: async (url: string | Request) => {
+        const href = typeof url === "string" ? url : url.url;
+        calls.push(href);
+        if (href.endsWith("/run")) return Response.json({ ok: true, receipts: [], diff: "", live: { runId: "ignored" } });
+        if (href.endsWith("/exec")) return Response.json({ ok: true, receipt: { type: "command", cmd: "pwd", code: 0, signal: null, stdout: "", stderr: "", startedAt: "t0", finishedAt: "t1" } });
+        if (href.includes("/read?")) return Response.json({ ok: true, path: "README.md", content: "hello" });
+        if (href.endsWith("/dev")) return Response.json({ ok: true, runId: "run_live", command: "bun run dev", port: 5173, startedAt: "t0" });
+        if (href.includes("/preview/")) return new Response("preview ok", { headers: { "content-type": "text/plain" } });
+        return Response.json({ ok: true, path: "README.md", bytes: 5 });
+      },
+    };
+    const env = { DB, CLOUDBOX_RUNNER: liveRunner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: "Bearer t" },
-      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], public: "yes" }),
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true }),
     }), env);
-    expect(response.status).toBe(400);
-    expect((await response.json() as any).error).toBe("bad_run");
+    const { runId } = await create.json() as any;
+
+    const exec = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/exec`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ command: "pwd" }),
+    }), env);
+    expect(exec.status).toBe(200);
+
+    const read = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/read?path=README.md`, { headers: { authorization: "Bearer t" } }), env);
+    expect((await read.json() as any).content).toBe("hello");
+
+    const write = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/write`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ path: "README.md", content: "hello" }),
+    }), env);
+    expect((await write.json() as any).bytes).toBe(5);
+
+    const dev = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/dev`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ command: "bun run dev", port: 5173 }),
+    }), env);
+    expect((await dev.json() as any).port).toBe(5173);
+
+    const preview = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/preview/index.html`, { headers: { authorization: "Bearer t" } }), env);
+    expect(await preview.text()).toBe("preview ok");
+    expect(calls.some((url) => url.includes(`/live/${runId}/exec`))).toBe(true);
+  });
+
+  it("rejects malformed dev launch requests", async () => {
+    const DB = new FakeD1() as any;
+    const env = { DB, CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true }),
+    }), env);
+    const { runId } = await create.json() as any;
+    const dev = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/dev`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ command: "", port: 0 }),
+    }), env);
+    expect(dev.status).toBe(400);
+  });
+
+  it("rejects non-live runs at live follow-up endpoints", async () => {
+    const DB = new FakeD1() as any;
+    const env = { DB, CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"] }),
+    }), env);
+    const { runId } = await create.json() as any;
+    const exec = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/exec`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ command: "pwd" }),
+    }), env);
+    expect(exec.status).toBe(409);
+  });
+
+  it("rejects non-boolean public or live flags with bad_run", async () => {
+    const env = { CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    for (const body of [
+      { repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], public: "yes" },
+      { repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: "yes" },
+    ]) {
+      const response = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer t" },
+        body: JSON.stringify(body),
+      }), env);
+      expect(response.status).toBe(400);
+      expect((await response.json() as any).error).toBe("bad_run");
+    }
   });
 });

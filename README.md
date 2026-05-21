@@ -117,6 +117,19 @@ The response includes:
 - `artifact` — `{ path, content }` of the requested file
 - `diff` — patch summary of changes made by the run
 
+## North star: steer a run while it is alive
+
+Cloudbox should stay centered on **runs**, not become a separate generic remote-development product. Today a run is clean, bounded, and proof-producing: clone a repo, execute commands, verify, return receipts and an artifact.
+
+The next scope is to make that same run temporarily interactive:
+
+- keep the repo filesystem available long enough for follow-up reads, writes, and commands
+- let a human and an agent steer the same remote computer through CLI or MCP
+- optionally start a dev process such as `bun run dev` and expose a secure preview URL for fast iteration
+- close the run back into Cloudbox's existing proof model: receipts, diff, artifact, and a shareable trail
+
+That north star extends `/api/runs`; it should not require Cloudbox to fork into a separate `/api/workspaces` product.
+
 ## Bring your agent
 
 Cloudbox is agent-agnostic. Anything that can POST JSON can drive it. Patterns:
@@ -245,7 +258,7 @@ pnpm run runner:test
 
 ## Status
 
-Cloudbox is early. The deployed app, demo, receipts, artifacts, grading, deploy path, and Cloudflare Container runner path are in the repo. Real repo runs go through `POST /api/runs` and execute in the `CloudboxRunner` container.
+Cloudbox is early. The deployed app, demo, receipts, artifacts, grading, deploy path, Cloudflare Container runner path, and shareable public run pages are in the repo. Real repo runs go through `POST /api/runs` and execute in the `CloudboxRunner` container. The next product step is interactive runs: preserving the same proof model while a human and an agent can steer files, commands, and an optional secure dev preview before the run closes.
 
 ## Research lineage
 

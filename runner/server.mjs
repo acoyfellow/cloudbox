@@ -1,11 +1,12 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve, relative } from "node:path";
+import { dirname, join, resolve, relative } from "node:path";
 import { spawn } from "node:child_process";
 
 const PORT = Number(process.env.PORT || 8080);
 const MAX_OUTPUT = 64_000;
 const MAX_TIMEOUT_MS = 120_000;
+const liveRuns = new Map();
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -98,9 +99,14 @@ async function handleRun(input) {
   const verify = Array.isArray(input.verify) ? input.verify : [];
   if (commands.length + verify.length === 0) throw new Error("at least one command or verify command is required");
 
+  const liveRunId = input.live === true && typeof input.liveRunId === "string" && /^run_[A-Za-z0-9-]+$/.test(input.liveRunId)
+    ? input.liveRunId
+    : null;
+  if (input.live === true && !liveRunId) throw new Error("live run id is required");
   const root = await mkdtemp(join(tmpdir(), "cloudbox-"));
   const workspace = join(root, "repo");
   const receipts = [];
+  let keepRoot = false;
   try {
     const cloneOptions = normalizeCloneOptions(input);
     const clone = await run(buildCloneCommand(input, cloneOptions), root, input.timeoutMs);
@@ -129,16 +135,120 @@ async function handleRun(input) {
 
     const diff = await run("git diff -- .", workspace, input.timeoutMs);
     receipts.push({ type: "diff", ...diff });
-    return { ok: receipts.every((r) => r.code === 0), receipts, artifact, diff: diff.stdout };
+    if (liveRunId) {
+      liveRuns.set(liveRunId, { root, workspace, createdAt: new Date().toISOString() });
+      keepRoot = true;
+    }
+    return {
+      ok: receipts.every((r) => r.code === 0),
+      receipts,
+      artifact,
+      diff: diff.stdout,
+      live: liveRunId ? { runId: liveRunId } : undefined,
+    };
   } finally {
-    await rm(root, { recursive: true, force: true });
+    if (!keepRoot) await rm(root, { recursive: true, force: true });
   }
 }
 
-const server = Bun?.serve ? null : null;
+function requireLiveWorkspace(runId) {
+  const found = liveRuns.get(runId);
+  if (!found) throw new Error("live run not found");
+  return found;
+}
+
+async function handleLiveExec(runId, input) {
+  if (!input || typeof input.command !== "string" || !input.command || input.command.length > 1_000) throw new Error("command is required");
+  const live = requireLiveWorkspace(runId);
+  const receipt = { type: "command", ...(await run(input.command, live.workspace, input.timeoutMs)) };
+  return { ok: receipt.code === 0, receipt };
+}
+
+async function handleLiveRead(runId, path) {
+  const live = requireLiveWorkspace(runId);
+  const fullPath = assertSafePath(live.workspace, path);
+  return { ok: true, path, content: await readFile(fullPath, "utf8") };
+}
+
+async function handleLiveWrite(runId, input) {
+  if (!input || typeof input.path !== "string" || typeof input.content !== "string") throw new Error("path and content are required");
+  const live = requireLiveWorkspace(runId);
+  const fullPath = assertSafePath(live.workspace, input.path);
+  await mkdir(dirname(fullPath), { recursive: true });
+  await writeFile(fullPath, input.content, "utf8");
+  return { ok: true, path: input.path, bytes: Buffer.byteLength(input.content) };
+}
+
+function snapshotDevProcess(runId, live) {
+  const dev = live.dev;
+  if (!dev) return null;
+  return {
+    ok: dev.child.exitCode === null,
+    runId,
+    command: dev.command,
+    port: dev.port,
+    startedAt: dev.startedAt,
+    stdout: redact(dev.stdout),
+    stderr: redact(dev.stderr),
+  };
+}
+
+async function handleLiveDev(runId, input) {
+  if (!input || typeof input.command !== "string" || !input.command || input.command.length > 1_000) throw new Error("command is required");
+  if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65_535) throw new Error("port must be an integer between 1 and 65535");
+  const live = requireLiveWorkspace(runId);
+  const existing = snapshotDevProcess(runId, live);
+  if (existing?.ok) return existing;
+  const child = spawn("bash", ["-lc", input.command], { cwd: live.workspace, env: process.env });
+  const dev = {
+    child,
+    command: redact(input.command),
+    port: input.port,
+    startedAt: new Date().toISOString(),
+    stdout: "",
+    stderr: "",
+  };
+  child.stdout.on("data", (chunk) => {
+    dev.stdout = (dev.stdout + chunk.toString()).slice(-MAX_OUTPUT);
+  });
+  child.stderr.on("data", (chunk) => {
+    dev.stderr = (dev.stderr + chunk.toString()).slice(-MAX_OUTPUT);
+  });
+  live.dev = dev;
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  return snapshotDevProcess(runId, live);
+}
+
+function livePreviewTarget(runId, request, suffix, protocol) {
+  const live = requireLiveWorkspace(runId);
+  const dev = snapshotDevProcess(runId, live);
+  if (!dev?.ok || !dev.port) throw new Error("dev process is not running");
+  const incoming = new URL(request.url);
+  return new URL(`${protocol}://127.0.0.1:${dev.port}/${suffix.replace(/^\/+/, "")}${incoming.search}`);
+}
+
+async function handleLivePreview(runId, request, suffix) {
+  const target = livePreviewTarget(runId, request, suffix, "http");
+  const headers = new Headers(request.headers);
+  headers.set("host", target.host);
+  return fetch(target, new Request(target, {
+    method: request.method,
+    headers,
+    body: request.body,
+    redirect: "manual",
+    duplex: request.body ? "half" : undefined,
+  }));
+}
+
+function upgradeLivePreview(server, request, runId, suffix) {
+  const target = livePreviewTarget(runId, request, suffix, "ws");
+  return server.upgrade(request, { data: { target: target.toString(), upstream: null } });
+}
+
+let bunServer = null;
 
 if (typeof Bun !== "undefined") {
-  Bun.serve({
+  bunServer = Bun.serve({
     port: PORT,
     async fetch(request) {
       const url = new URL(request.url);
@@ -147,7 +257,56 @@ if (typeof Bun !== "undefined") {
         try { return json(await handleRun(await request.json())); }
         catch (error) { return json({ ok: false, error: String(error?.message || error) }, 400); }
       }
+        const previewMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/preview\/?(.*)$/);
+      if (previewMatch) {
+        const [, runId, suffix] = previewMatch;
+        try {
+          if (request.headers.get("upgrade")?.toLowerCase() === "websocket") {
+            if (upgradeLivePreview(bunServer, request, runId, suffix)) return;
+            return json({ ok: false, error: "preview_websocket_upgrade_failed" }, 502);
+          }
+          return await handleLivePreview(runId, request, suffix);
+        }
+        catch (error) { return json({ ok: false, error: String(error?.message || error) }, String(error?.message || error) === "live run not found" ? 404 : 409); }
+      }
+      const liveMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/(exec|read|write|dev)$/);
+      if (liveMatch) {
+        const [, runId, action] = liveMatch;
+        try {
+          if (action === "exec" && request.method === "POST") return json(await handleLiveExec(runId, await request.json()));
+          if (action === "read" && request.method === "GET") return json(await handleLiveRead(runId, url.searchParams.get("path") || ""));
+          if (action === "write" && request.method === "POST") return json(await handleLiveWrite(runId, await request.json()));
+          if (action === "dev" && request.method === "POST") return json(await handleLiveDev(runId, await request.json()));
+          return json({ error: "method_not_allowed" }, 405);
+        } catch (error) {
+          return json({ ok: false, error: String(error?.message || error) }, String(error?.message || error) === "live run not found" ? 404 : 400);
+        }
+      }
       return json({ error: "not_found" }, 404);
+    },
+    websocket: {
+      open(ws) {
+        const upstream = new WebSocket(ws.data.target);
+        ws.data.upstream = upstream;
+        ws.data.pending = [];
+        upstream.addEventListener("open", () => {
+          for (const message of ws.data.pending) upstream.send(message);
+          ws.data.pending = [];
+        });
+        upstream.addEventListener("message", (event) => ws.send(event.data));
+        upstream.addEventListener("error", () => ws.close(1011, "preview upstream websocket error"));
+        upstream.addEventListener("close", (event) => ws.close(event.code || 1000, event.reason || "preview upstream websocket closed"));
+      },
+      message(ws, message) {
+        const upstream = ws.data.upstream;
+        if (!upstream) return;
+        if (upstream.readyState === WebSocket.OPEN) upstream.send(message);
+        else ws.data.pending.push(message);
+      },
+      close(ws) {
+        const upstream = ws.data.upstream;
+        if (upstream && upstream.readyState < WebSocket.CLOSING) upstream.close();
+      },
     },
   });
 } else {
@@ -161,6 +320,34 @@ if (typeof Bun !== "undefined") {
         if (req.url === "/run" && req.method === "POST") {
           const out = await handleRun(JSON.parse(Buffer.concat(chunks).toString() || "{}"));
           res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+        }
+        const url = new URL(req.url || "/", `http://localhost:${PORT}`);
+        const previewMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/preview\/?(.*)$/);
+        if (previewMatch) {
+          res.writeHead(501, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: "preview_proxy_requires_bun_runtime" }));
+          return;
+        }
+      const liveMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/(exec|read|write|dev)$/);
+        if (liveMatch) {
+          const [, runId, action] = liveMatch;
+          if (action === "exec" && req.method === "POST") {
+            const out = await handleLiveExec(runId, JSON.parse(Buffer.concat(chunks).toString() || "{}"));
+            res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+          }
+          if (action === "read" && req.method === "GET") {
+            const out = await handleLiveRead(runId, url.searchParams.get("path") || "");
+            res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+          }
+          if (action === "write" && req.method === "POST") {
+            const out = await handleLiveWrite(runId, JSON.parse(Buffer.concat(chunks).toString() || "{}"));
+            res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+          }
+          if (action === "dev" && req.method === "POST") {
+            const out = await handleLiveDev(runId, JSON.parse(Buffer.concat(chunks).toString() || "{}"));
+            res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+          }
+          res.writeHead(405, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "method_not_allowed" })); return;
         }
         res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "not_found" }));
       } catch (error) {

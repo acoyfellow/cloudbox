@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { fromBrief } from "./brief.ts";
-import { runInContainer, type ContainerRunRequest } from "./container-runner.ts";
+import { devInContainer, execInContainer, previewInContainer, readInContainer, runInContainer, writeInContainer, type ContainerRunRequest } from "./container-runner.ts";
 import { materialize } from "./materialize.ts";
 import type { ComputerSpec } from "./spec.ts";
 import { handleLocalAction, materializeLocal } from "./local-demo.ts";
@@ -99,7 +99,7 @@ api.post("/api/runs", async (c) => {
     ? `${new URL(c.req.url).origin}/runs/${runId}`
     : undefined;
   try {
-    const result = await runInContainer(c.env.CLOUDBOX_RUNNER, sharedInput);
+    const result = await runInContainer(c.env.CLOUDBOX_RUNNER, sharedInput, runId);
     await recordRun(c.env.DB, { id: runId, input: sharedInput, result, status: result.ok ? "passed" : "failed" });
     return c.json({ runId, publicUrl, ...result }, result.ok ? 200 : 422);
   } catch (error) {
@@ -107,6 +107,63 @@ api.post("/api/runs", async (c) => {
     await recordRun(c.env.DB, { id: runId, input: sharedInput, result, status: "error" });
     return c.json({ runId, publicUrl, ...result }, 500);
   }
+});
+
+api.post("/api/runs/:id/exec", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const body = await c.req.json().catch(() => null) as { command?: string; timeoutMs?: number } | null;
+  if (!body?.command || typeof body.command !== "string" || body.command.length > 1_000) return jsonError(c, 400, "bad_exec", "command is required and must be <= 1000 chars");
+  if (body.timeoutMs !== undefined && (!Number.isFinite(body.timeoutMs) || body.timeoutMs <= 0)) return jsonError(c, 400, "bad_exec", "timeoutMs must be positive");
+  return c.json(await execInContainer(c.env.CLOUDBOX_RUNNER, row.id, { command: body.command, timeoutMs: body.timeoutMs }));
+});
+
+api.get("/api/runs/:id/read", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const path = c.req.query("path");
+  if (!isSafeRelativePath(path)) return jsonError(c, 400, "bad_path", "path must be a safe relative path");
+  return c.json(await readInContainer(c.env.CLOUDBOX_RUNNER, row.id, path));
+});
+
+api.post("/api/runs/:id/write", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const body = await c.req.json().catch(() => null) as { path?: string; content?: string } | null;
+  if (!isSafeRelativePath(body?.path)) return jsonError(c, 400, "bad_path", "path must be a safe relative path");
+  if (typeof body?.content !== "string" || body.content.length > 200_000) return jsonError(c, 400, "bad_write", "content must be a string <= 200000 chars");
+  return c.json(await writeInContainer(c.env.CLOUDBOX_RUNNER, row.id, { path: body.path, content: body.content }));
+});
+
+api.post("/api/runs/:id/dev", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const body = await c.req.json().catch(() => null) as { command?: string; port?: number } | null;
+  if (!body?.command || typeof body.command !== "string" || body.command.length > 1_000) return jsonError(c, 400, "bad_dev", "command is required and must be <= 1000 chars");
+  if (!Number.isInteger(body.port) || (body.port as number) < 1 || (body.port as number) > 65_535) return jsonError(c, 400, "bad_dev", "port must be an integer between 1 and 65535");
+  return c.json(await devInContainer(c.env.CLOUDBOX_RUNNER, row.id, { command: body.command, port: body.port as number }));
+});
+
+api.all("/api/runs/:id/preview/*", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const suffix = c.req.path.split(`/api/runs/${row.id}/preview/`)[1] ?? "";
+  return previewInContainer(c.env.CLOUDBOX_RUNNER, row.id, c.req.raw, suffix);
 });
 
 api.all("*", (c) => jsonError(c, 404, "not_found", "unknown API route"));
@@ -175,6 +232,7 @@ function validateRun(input: ContainerRunRequest | null): Response | null {
   if (!input.commands?.length && !input.verify?.length) return jsonErrorResponse(400, "bad_run", "at least one command or verify command is required");
   if (input.artifact !== undefined && (typeof input.artifact !== "string" || input.artifact.length > 240)) return jsonErrorResponse(400, "bad_run", "artifact must be a short relative path");
   if (input.public !== undefined && typeof input.public !== "boolean") return jsonErrorResponse(400, "bad_run", "public must be a boolean");
+  if (input.live !== undefined && typeof input.live !== "boolean") return jsonErrorResponse(400, "bad_run", "live must be a boolean");
   return null;
 }
 
@@ -259,6 +317,23 @@ async function getRun(db: D1Database | undefined, id: string): Promise<RunRecord
     input: row.input ? (safeParse(row.input) as ContainerRunRequest | null) : null,
     result: safeParse(row.result),
   };
+}
+
+async function requireLiveRun(db: D1Database | undefined, id: string): Promise<RunRecord | Response> {
+  const row = await getRun(db, id);
+  if (!row) return jsonErrorResponse(404, "run_not_found", "run not found");
+  if (row.input?.live !== true) return jsonErrorResponse(409, "run_not_live", "run was not created with live: true");
+  return row;
+}
+
+function isSafeRelativePath(path: unknown): path is string {
+  return typeof path === "string"
+    && path.length > 0
+    && path.length <= 240
+    && !path.startsWith("/")
+    && !path.includes("\0")
+    && !path.split("/").includes("..")
+    && !/[\n\r`$\\]/.test(path);
 }
 
 function safeParse(value: string): unknown {

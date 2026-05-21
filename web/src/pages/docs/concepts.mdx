@@ -14,6 +14,12 @@ Cloudbox gives an agent two ways to act, both receipt-backed:
 
 Pick the run surface when you have a real repo and a verification command. Pick the workspace surface when you want to constrain the agent's world and grade its trajectory.
 
+## Runs are the product direction
+
+Cloudbox's north star extends the run surface instead of introducing a separate remote-development product. A run should be able to stay open long enough for a human and an agent to steer the same clean remote computer: inspect files, execute follow-up commands, optionally start a secure dev preview such as `bun run dev`, and then close into the same receipts, diff, artifact, and shareable trail Cloudbox already returns.
+
+That interactive run loop is the next scope. The current shipped run API is still bounded and batch-oriented.
+
 ## Runs
 
 A run is the simplest unit of agent work. You hand Cloudbox:
