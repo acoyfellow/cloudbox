@@ -36,7 +36,10 @@ if (!dev.ok || devBody?.ok !== true) throw new Error(`dev start failed: ${dev.st
 
 const previewUrl = `${url}/api/runs/${runId}/preview/`;
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const page = await browser.newPage({
+  viewport: { width: 1280, height: 900 },
+  extraHTTPHeaders: { authorization: `Bearer ${token}` },
+});
 let previewSeen = false;
 let updatedSeen = false;
 let writeBody = null;
