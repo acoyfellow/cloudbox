@@ -153,7 +153,11 @@ api.post("/api/runs/:id/dev", async (c) => {
   const body = await c.req.json().catch(() => null) as { command?: string; port?: number } | null;
   if (!body?.command || typeof body.command !== "string" || body.command.length > 1_000) return jsonError(c, 400, "bad_dev", "command is required and must be <= 1000 chars");
   if (!Number.isInteger(body.port) || (body.port as number) < 1 || (body.port as number) > 65_535) return jsonError(c, 400, "bad_dev", "port must be an integer between 1 and 65535");
-  return c.json(await devInContainer(c.env.CLOUDBOX_RUNNER, row.id, { command: body.command, port: body.port as number }));
+  try {
+    return c.json(await devInContainer(c.env.CLOUDBOX_RUNNER, row.id, { command: body.command, port: body.port as number }));
+  } catch (error) {
+    return jsonError(c, 502, "runner_request_failed", error instanceof Error ? error.message : String(error));
+  }
 });
 
 api.all("/api/runs/:id/preview/*", async (c) => {
