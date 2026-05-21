@@ -41,7 +41,7 @@ export function runnerLifecycle(args: {
   return Effect.gen(function* () {
     const events: RunnerEvent[] = [];
     const port = args.port ?? 8080;
-    const url = args.url ?? "http://container/run";
+    const url = args.url ?? args.request.url;
     const delays = args.delaysMs ?? DEFAULT_DELAYS_MS;
     const now = args.now ?? Date.now;
     const isoNow = args.isoNow ?? (() => new Date().toISOString());

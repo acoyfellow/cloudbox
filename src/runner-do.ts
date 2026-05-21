@@ -15,6 +15,7 @@ export class CloudboxRunner extends DurableObject {
   async fetch(request: Request): Promise<Response> {
     try {
       const { response, events } = await fetchWithRunnerLifecycle({ container: this.state.container, request });
+      if (new URL(request.url).pathname.includes("/preview/")) return response;
       const body = (await response.json().catch(() => null)) as ContainerRunResult | null;
       if (!response.ok || !body) {
         return json({ ok: false, error: `container_http_${response.status}`, runnerReceipts: events }, response.status || 500);
