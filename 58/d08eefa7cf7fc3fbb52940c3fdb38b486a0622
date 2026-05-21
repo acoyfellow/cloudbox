@@ -1,0 +1,25 @@
+src/runner-do.ts
+  da31a58da6824240 18
+src/runner-lifecycle.ts
+  da31a58da6824240 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "58d08eefa7cf7fc3fbb52940c3fdb38b486a0622",
+  "prompts": {
+    "da31a58da6824240": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d37887feffeaN1gXG0409TID8",
+        "model": "anthropic/claude-opus-4-7"
+      },
+      "human_author": "Jordan Coeyman",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 1,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
