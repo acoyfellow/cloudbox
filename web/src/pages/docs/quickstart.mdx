@@ -13,7 +13,7 @@ Get Cloudbox into your Cloudflare account, then hand your agent a clean Linux bo
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox)
 
-Cloudbox is built to be your Cloudbox. The button forks the repo into your account and runs `alchemy.run.ts`, which provisions the Worker, the `CloudboxRunner` Durable Object + `cloudbox-runner` Cloudflare Container, the workspace DO namespace, R2, and D1. The one-click flow is the public funnel; the GitHub Actions deploy path is the verified one for this repo today.
+Cloudbox is built to be your Cloudbox. The button forks the repo into your account and runs `alchemy.run.ts`, which provisions the Worker, the lightweight `CloudboxRunner` plus opt-in `CloudboxDesktopRunner` Container paths, the workspace DO namespace, R2, and D1. The one-click flow is the public funnel; the GitHub Actions deploy path is the verified one for this repo today.
 
 Once deployed, you can `POST /api/runs` from any agent — Cloudbox itself runs nothing on your behalf.
 
@@ -67,7 +67,7 @@ Use Cloudbox when repo work needs proof:
 
 Get from clone to a working local demo in under seven minutes.
 
-The local loop uses **pnpm**, **Bun ≥ 1.3**, and **Node ≥ 22**. No secrets needed for the demo path. Cloudflare bindings (`CLOUDBOX_RUNNER`, `CLOUDBOX_COMPUTER`, R2, D1) come online when you `bun run dev:worker` or deploy.
+The local loop uses **pnpm**, **Bun ≥ 1.3**, and **Node ≥ 22**. No secrets needed for the demo path. Cloudflare bindings (`CLOUDBOX_RUNNER`, `CLOUDBOX_DESKTOP_RUNNER`, `CLOUDBOX_COMPUTER`, R2, D1) come online when you `bun run dev:worker` or deploy.
 
 Inside the runner container, **pnpm** is the default package manager and the image ships with `git`, `node`, `bun`, and `pnpm` preinstalled. Recipe examples lean on pnpm; pick whatever your repo uses.
 

@@ -219,11 +219,64 @@ async function handleLiveDev(runId, input) {
   return snapshotDevProcess(runId, live);
 }
 
+function safeRunId(runId) {
+  if (!/^run_[A-Za-z0-9-]+$/.test(runId)) throw new Error("invalid live run id");
+  return runId;
+}
+
+async function handleLiveSnapshot(runId) {
+  const live = requireLiveWorkspace(runId);
+  safeRunId(runId);
+  if (live.dev?.child?.exitCode === null) live.dev.child.kill("SIGTERM");
+  const archive = join(tmpdir(), `${runId}-${Date.now()}.tar.gz`);
+  const receipt = await run(`tar -czf ${shell(archive)} -C ${shell(live.root)} repo`, live.root);
+  if (receipt.code !== 0) return { ok: false, runId, error: receipt.stderr || receipt.stdout, receipt };
+  const data = await readFile(archive);
+  await rm(archive, { force: true });
+  await rm(live.root, { recursive: true, force: true });
+  liveRuns.delete(runId);
+  return { ok: true, runId, snapshot: { bytes: data.toString("base64"), size: data.byteLength } };
+}
+
+async function handleLiveRestore(runId, input) {
+  safeRunId(runId);
+  const bytes = input?.snapshot?.bytes;
+  if (typeof bytes !== "string" || !bytes) throw new Error("snapshot bytes are required");
+  const data = Buffer.from(bytes, "base64");
+  if (!data.length || data.byteLength > 100 * 1024 * 1024) throw new Error("snapshot is empty or too large");
+  const root = await mkdtemp(join(tmpdir(), "cloudbox-"));
+  const archive = join(root, "snapshot.tar.gz");
+  await writeFile(archive, data);
+  const receipt = await run(`tar -xzf ${shell(archive)} -C ${shell(root)}`, root);
+  await rm(archive, { force: true });
+  if (receipt.code !== 0) {
+    await rm(root, { recursive: true, force: true });
+    return { ok: false, runId, error: receipt.stderr || receipt.stdout, receipt };
+  }
+  liveRuns.set(runId, { root, workspace: join(root, "repo"), createdAt: new Date().toISOString() });
+  return { ok: true, runId };
+}
+
+async function handleLiveDelete(runId) {
+  safeRunId(runId);
+  const live = liveRuns.get(runId);
+  if (live?.dev?.child?.exitCode === null) live.dev.child.kill("SIGTERM");
+  if (live) await rm(live.root, { recursive: true, force: true });
+  liveRuns.delete(runId);
+  return { ok: true, runId, deleted: true };
+}
+
 function livePreviewTarget(runId, request, suffix, protocol) {
   const live = requireLiveWorkspace(runId);
+  const incoming = new URL(request.url);
+  const named = suffix.match(/^(shell|desktop)(?:\/(.*))?$/);
+  if (named) {
+    const [, service, rest = ""] = named;
+    const port = service === "shell" ? 7681 : 6080;
+    return new URL(`${protocol}://127.0.0.1:${port}/${rest}${incoming.search}`);
+  }
   const dev = snapshotDevProcess(runId, live);
   if (!dev?.ok || !dev.port) throw new Error("dev process is not running");
-  const incoming = new URL(request.url);
   return new URL(`${protocol}://127.0.0.1:${dev.port}/${suffix.replace(/^\/+/, "")}${incoming.search}`);
 }
 
@@ -269,7 +322,7 @@ if (typeof Bun !== "undefined") {
         }
         catch (error) { return json({ ok: false, error: String(error?.message || error) }, String(error?.message || error) === "live run not found" ? 404 : 409); }
       }
-      const liveMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/(exec|read|write|dev)$/);
+      const liveMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/(exec|read|write|dev|snapshot|restore|delete)$/);
       if (liveMatch) {
         const [, runId, action] = liveMatch;
         try {
@@ -277,6 +330,9 @@ if (typeof Bun !== "undefined") {
           if (action === "read" && request.method === "GET") return json(await handleLiveRead(runId, url.searchParams.get("path") || ""));
           if (action === "write" && request.method === "POST") return json(await handleLiveWrite(runId, await request.json()));
           if (action === "dev" && request.method === "POST") return json(await handleLiveDev(runId, await request.json()));
+          if (action === "snapshot" && request.method === "POST") return json(await handleLiveSnapshot(runId));
+          if (action === "restore" && request.method === "POST") return json(await handleLiveRestore(runId, await request.json()));
+          if (action === "delete" && request.method === "POST") return json(await handleLiveDelete(runId));
           return json({ error: "method_not_allowed" }, 405);
         } catch (error) {
           return json({ ok: false, error: String(error?.message || error) }, String(error?.message || error) === "live run not found" ? 404 : 400);
@@ -328,7 +384,7 @@ if (typeof Bun !== "undefined") {
           res.end(JSON.stringify({ error: "preview_proxy_requires_bun_runtime" }));
           return;
         }
-      const liveMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/(exec|read|write|dev)$/);
+      const liveMatch = url.pathname.match(/^\/live\/(run_[A-Za-z0-9-]+)\/(exec|read|write|dev|snapshot|restore|delete)$/);
         if (liveMatch) {
           const [, runId, action] = liveMatch;
           if (action === "exec" && req.method === "POST") {
@@ -345,6 +401,18 @@ if (typeof Bun !== "undefined") {
           }
           if (action === "dev" && req.method === "POST") {
             const out = await handleLiveDev(runId, JSON.parse(Buffer.concat(chunks).toString() || "{}"));
+            res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+          }
+          if (action === "snapshot" && req.method === "POST") {
+            const out = await handleLiveSnapshot(runId);
+            res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+          }
+          if (action === "restore" && req.method === "POST") {
+            const out = await handleLiveRestore(runId, JSON.parse(Buffer.concat(chunks).toString() || "{}"));
+            res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
+          }
+          if (action === "delete" && req.method === "POST") {
+            const out = await handleLiveDelete(runId);
             res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)); return;
           }
           res.writeHead(405, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "method_not_allowed" })); return;

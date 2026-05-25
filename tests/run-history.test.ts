@@ -8,7 +8,7 @@ class FakeStmt {
   async run() {
     if (this.sql.startsWith("INSERT") && this.sql.includes("INTO runs")) {
       const values = this.values as unknown[];
-      // Order: id, computer_id, mode, created_at, updated_at, repo, status, artifact, result, input, is_public
+      // Order: id, computer_id, mode, created_at, updated_at, repo, status, artifact, result, input, is_public, snapshot_key, forked_from, expires_at
       const id = String(values[0]);
       const createdAt = String(values[3]);
       const repo = String(values[5]);
@@ -17,12 +17,20 @@ class FakeStmt {
       const result = String(values[8]);
       const input = (values[9] as string | undefined) ?? null;
       const isPublic = values[10] === 1 ? 1 : 0;
-      this.db.rows.set(id, { id, createdAt, repo, status, artifact, result, input, isPublic });
+      const snapshotKey = (values[11] as string | null) ?? null;
+      const forkedFrom = (values[12] as string | null) ?? null;
+      const expiresAt = (values[13] as string | null) ?? null;
+      this.db.rows.set(id, { id, createdAt, repo, status, artifact, result, input, isPublic, snapshotKey, forkedFrom, expiresAt });
+    }
+    if (this.sql.startsWith("UPDATE runs SET status")) {
+      const [status, , result, snapshotKey, forkedFrom, id] = this.values as [string, string, string, string | null, string | null, string];
+      const row = this.db.rows.get(id);
+      if (row) this.db.rows.set(id, { ...row, status, result, snapshotKey: snapshotKey ?? row.snapshotKey, forkedFrom: forkedFrom ?? row.forkedFrom });
     }
     return { success: true };
   }
   async all<T>() {
-    return { results: [...this.db.rows.values()].map(({ result, input, isPublic, ...row }) => row).slice(0, 20) as T[] };
+    return { results: [...this.db.rows.values()].map(({ result, input, isPublic, snapshotKey, forkedFrom, expiresAt, ...row }) => row).slice(0, 20) as T[] };
   }
   async first<T>() {
     const row = this.db.rows.get(String(this.values[0]));
@@ -33,6 +41,16 @@ class FakeStmt {
 class FakeD1 {
   rows = new Map<string, any>();
   prepare(sql: string) { return new FakeStmt(this, sql); }
+}
+
+class FakeR2 {
+  objects = new Map<string, Uint8Array>();
+  async put(key: string, value: Uint8Array) { this.objects.set(key, value); }
+  async get(key: string) {
+    const value = this.objects.get(key);
+    return value ? { arrayBuffer: async () => value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) } : null;
+  }
+  async delete(key: string) { this.objects.delete(key); }
 }
 
 const runner = {
@@ -159,6 +177,71 @@ describe("run history", () => {
     expect(calls.some((url) => url.includes(`/live/${runId}/exec`))).toBe(true);
   });
 
+  it("stops and resumes a live run through an R2-backed snapshot", async () => {
+    const DB = new FakeD1() as any;
+    const ARTIFACTS = new FakeR2() as any;
+    const calls: string[] = [];
+    const lifecycleRunner = {
+      fetch: async (url: string | Request) => {
+        const href = typeof url === "string" ? url : url.url;
+        calls.push(href);
+        if (href.endsWith("/run")) return Response.json({ ok: true, receipts: [], diff: "", live: { runId: "ignored" } });
+        if (href.endsWith("/snapshot")) return Response.json({ ok: true, runId: "ignored", snapshot: { bytes: btoa("workspace"), size: 9 } });
+        if (href.endsWith("/restore")) return Response.json({ ok: true, runId: "ignored" });
+        return Response.json({ ok: true });
+      },
+    };
+    const env = { DB, ARTIFACTS, CLOUDBOX_RUNNER: lifecycleRunner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true, ttlSeconds: 3600 }),
+    }), env);
+    const { runId } = await create.json() as any;
+
+    const stop = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/stop`, { method: "POST", headers: { authorization: "Bearer t" } }), env);
+    const stopped = await stop.json() as any;
+    expect(stopped.status).toBe("stopped");
+    expect(stopped.snapshot.key).toMatch(new RegExp(`^snapshots/${runId}/`));
+    expect(ARTIFACTS.objects.size).toBe(1);
+
+    const blocked = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/exec`, {
+      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer t" }, body: JSON.stringify({ command: "pwd" }),
+    }), env);
+    expect(blocked.status).toBe(409);
+
+    const resume = await api.fetch(new Request(`https://cloudbox.test/api/runs/${runId}/resume`, { method: "POST", headers: { authorization: "Bearer t" } }), env);
+    expect((await resume.json() as any).status).toBe("ready");
+    expect(calls.some((url) => url.endsWith("/snapshot"))).toBe(true);
+    expect(calls.some((url) => url.endsWith("/restore"))).toBe(true);
+  });
+
+  it("forks a live run from a snapshot and preserves source provenance", async () => {
+    const DB = new FakeD1() as any;
+    const ARTIFACTS = new FakeR2() as any;
+    const lifecycleRunner = {
+      fetch: async (url: string | Request) => {
+        const href = typeof url === "string" ? url : url.url;
+        if (href.endsWith("/run")) return Response.json({ ok: true, receipts: [], diff: "", live: { runId: "ignored" } });
+        if (href.endsWith("/snapshot")) return Response.json({ ok: true, snapshot: { bytes: btoa("workspace"), size: 9 } });
+        if (href.endsWith("/restore")) return Response.json({ ok: true });
+        return Response.json({ ok: true });
+      },
+    };
+    const env = { DB, ARTIFACTS, CLOUDBOX_RUNNER: lifecycleRunner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true }),
+    }), env);
+    const { runId: sourceId } = await create.json() as any;
+    const fork = await api.fetch(new Request(`https://cloudbox.test/api/runs/${sourceId}/fork`, { method: "POST", headers: { authorization: "Bearer t" } }), env);
+    const forked = await fork.json() as any;
+    expect(fork.status).toBe(201);
+    expect(forked.forkedFrom).toBe(sourceId);
+    expect(forked.runId).not.toBe(sourceId);
+    const child = await api.fetch(new Request(`https://cloudbox.test/api/runs/${forked.runId}`, { headers: { authorization: "Bearer t" } }), env);
+    expect((await child.json() as any).forkedFrom).toBe(sourceId);
+  });
+
   it("rejects malformed dev launch requests", async () => {
     const DB = new FakeD1() as any;
     const env = { DB, CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
@@ -191,6 +274,49 @@ describe("run history", () => {
       body: JSON.stringify({ command: "pwd" }),
     }), env);
     expect(exec.status).toBe(409);
+  });
+
+  it("routes desktop live runs to the desktop container binding", async () => {
+    const DB = new FakeD1() as any;
+    let normalCalls = 0;
+    let desktopCalls = 0;
+    const normalRunner = { fetch: async () => { normalCalls++; return Response.json({ ok: true, receipts: [], diff: "" }); } };
+    const desktopRunner = { fetch: async () => { desktopCalls++; return Response.json({ ok: true, receipts: [], diff: "", live: { runId: "desktop" } }); } };
+    const env = { DB, CLOUDBOX_RUNNER: normalRunner, CLOUDBOX_DESKTOP_RUNNER: desktopRunner, CLOUDBOX_API_TOKEN: "t" };
+    const create = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer t" },
+      body: JSON.stringify({ repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true, desktop: true }),
+    }), env);
+    expect(create.status).toBe(200);
+    expect(desktopCalls).toBe(1);
+    expect(normalCalls).toBe(0);
+  });
+
+  it("rejects desktop sessions unless explicitly live", async () => {
+    const env = { CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    for (const body of [
+      { repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], desktop: true },
+      { repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true, desktop: "yes" },
+    ]) {
+      const response = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+        method: "POST", headers: { "content-type": "application/json", authorization: "Bearer t" }, body: JSON.stringify(body),
+      }), env);
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it("rejects TTL without a live run or outside supported bounds", async () => {
+    const env = { CLOUDBOX_RUNNER: runner, CLOUDBOX_API_TOKEN: "t" };
+    for (const body of [
+      { repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], ttlSeconds: 3600 },
+      { repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true, ttlSeconds: 59 },
+      { repo: "https://github.com/acoyfellow/cloudbox", verify: ["echo ok"], live: true, ttlSeconds: 2_592_001 },
+    ]) {
+      const response = await api.fetch(new Request("https://cloudbox.test/api/runs", {
+        method: "POST", headers: { "content-type": "application/json", authorization: "Bearer t" }, body: JSON.stringify(body),
+      }), env);
+      expect(response.status).toBe(400);
+    }
   });
 
   it("rejects non-boolean public or live flags with bad_run", async () => {

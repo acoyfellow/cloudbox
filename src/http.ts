@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { fromBrief } from "./brief.ts";
-import { devInContainer, execInContainer, previewInContainer, readInContainer, runInContainer, writeInContainer, type ContainerRunRequest } from "./container-runner.ts";
+import { deleteLiveInContainer, devInContainer, execInContainer, previewInContainer, readInContainer, restoreInContainer, runInContainer, snapshotInContainer, writeInContainer, type ContainerRunRequest } from "./container-runner.ts";
 import { materialize } from "./materialize.ts";
 import type { ComputerSpec } from "./spec.ts";
 import { handleLocalAction, materializeLocal } from "./local-demo.ts";
@@ -8,6 +8,7 @@ import { handleLocalAction, materializeLocal } from "./local-demo.ts";
 export type CloudboxBindings = {
   CLOUDBOX_COMPUTER?: DurableObjectNamespace;
   CLOUDBOX_RUNNER?: unknown;
+  CLOUDBOX_DESKTOP_RUNNER?: unknown;
   ARTIFACTS?: R2Bucket;
   DB?: D1Database;
   CLOUDBOX_API_TOKEN?: string;
@@ -89,7 +90,8 @@ api.post("/api/runs", async (c) => {
   const validation = validateRun(input);
   if (validation) return validation;
   if (demo && !isAllowedDemoRun(input)) return jsonError(c, 403, "demo_not_allowed", "demo runs only allow public GitHub repos with short echo/test commands");
-  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const runner = selectRunner(c.env, input as ContainerRunRequest);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
   const runId = `run_${crypto.randomUUID()}`;
   // Demo runs go through the curated allow-list (isAllowedDemoRun) so they
   // are safe to share. Auto-mark them public so the hosted demo produces
@@ -99,7 +101,7 @@ api.post("/api/runs", async (c) => {
     ? `${new URL(c.req.url).origin}/runs/${runId}`
     : undefined;
   try {
-    const result = await runInContainer(c.env.CLOUDBOX_RUNNER, sharedInput, runId);
+    const result = await runInContainer(runner, sharedInput, runId);
     await recordRun(c.env.DB, { id: runId, input: sharedInput, result, status: result.ok ? "passed" : "failed" });
     return c.json({ runId, publicUrl, ...result }, result.ok ? 200 : 422);
   } catch (error) {
@@ -112,65 +114,153 @@ api.post("/api/runs", async (c) => {
 api.post("/api/runs/:id/exec", async (c) => {
   const auth = authorize(c.req.raw, null, c.env);
   if (auth) return auth;
-  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  const row = await requireRunnableLiveRun(c.env.DB, c.req.param("id"));
   if (row instanceof Response) return row;
-  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
   const body = await c.req.json().catch(() => null) as { command?: string; timeoutMs?: number } | null;
   if (!body?.command || typeof body.command !== "string" || body.command.length > 1_000) return jsonError(c, 400, "bad_exec", "command is required and must be <= 1000 chars");
   if (body.timeoutMs !== undefined && (!Number.isFinite(body.timeoutMs) || body.timeoutMs <= 0)) return jsonError(c, 400, "bad_exec", "timeoutMs must be positive");
-  return c.json(await execInContainer(c.env.CLOUDBOX_RUNNER, row.id, { command: body.command, timeoutMs: body.timeoutMs }));
+  return c.json(await execInContainer(runner, row.id, { command: body.command, timeoutMs: body.timeoutMs }));
 });
 
 api.get("/api/runs/:id/read", async (c) => {
   const auth = authorize(c.req.raw, null, c.env);
   if (auth) return auth;
-  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  const row = await requireRunnableLiveRun(c.env.DB, c.req.param("id"));
   if (row instanceof Response) return row;
-  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
   const path = c.req.query("path");
   if (!isSafeRelativePath(path)) return jsonError(c, 400, "bad_path", "path must be a safe relative path");
-  return c.json(await readInContainer(c.env.CLOUDBOX_RUNNER, row.id, path));
+  return c.json(await readInContainer(runner, row.id, path));
 });
 
 api.post("/api/runs/:id/write", async (c) => {
   const auth = authorize(c.req.raw, null, c.env);
   if (auth) return auth;
-  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  const row = await requireRunnableLiveRun(c.env.DB, c.req.param("id"));
   if (row instanceof Response) return row;
-  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
   const body = await c.req.json().catch(() => null) as { path?: string; content?: string } | null;
   if (!isSafeRelativePath(body?.path)) return jsonError(c, 400, "bad_path", "path must be a safe relative path");
   if (typeof body?.content !== "string" || body.content.length > 200_000) return jsonError(c, 400, "bad_write", "content must be a string <= 200000 chars");
-  return c.json(await writeInContainer(c.env.CLOUDBOX_RUNNER, row.id, { path: body.path, content: body.content }));
+  return c.json(await writeInContainer(runner, row.id, { path: body.path, content: body.content }));
 });
 
 api.post("/api/runs/:id/dev", async (c) => {
   const auth = authorize(c.req.raw, null, c.env);
   if (auth) return auth;
-  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  const row = await requireRunnableLiveRun(c.env.DB, c.req.param("id"));
   if (row instanceof Response) return row;
-  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
   const body = await c.req.json().catch(() => null) as { command?: string; port?: number } | null;
   if (!body?.command || typeof body.command !== "string" || body.command.length > 1_000) return jsonError(c, 400, "bad_dev", "command is required and must be <= 1000 chars");
   if (!Number.isInteger(body.port) || (body.port as number) < 1 || (body.port as number) > 65_535) return jsonError(c, 400, "bad_dev", "port must be an integer between 1 and 65535");
   try {
-    return c.json(await devInContainer(c.env.CLOUDBOX_RUNNER, row.id, { command: body.command, port: body.port as number }));
+    return c.json(await devInContainer(runner, row.id, { command: body.command, port: body.port as number }));
   } catch (error) {
     return jsonError(c, 502, "runner_request_failed", error instanceof Error ? error.message : String(error));
+  }
+});
+
+api.post("/api/runs/:id/stop", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireRunnableLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
+  if (!c.env.ARTIFACTS) return jsonError(c, 503, "snapshot_storage_unavailable", "ARTIFACTS binding is required for live run snapshots");
+  const result = await snapshotInContainer(runner, row.id);
+  if (!result.ok || !result.snapshot?.bytes) return c.json(result, 422);
+  try {
+    const snapshotKey = await storeSnapshot(c.env.ARTIFACTS, row.id, result.snapshot.bytes);
+    await updateLiveState(c.env.DB, row.id, "stopped", { snapshotKey, stoppedAt: new Date().toISOString() });
+    return c.json({ ok: true, runId: row.id, status: "stopped", snapshot: { key: snapshotKey, size: result.snapshot.size } });
+  } catch (error) {
+    return jsonError(c, 503, "snapshot_storage_unavailable", error instanceof Error ? error.message : String(error));
+  }
+});
+
+api.post("/api/runs/:id/resume", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  if (row.status !== "stopped" || !row.snapshotKey) return jsonError(c, 409, "run_not_stopped", "live run is not stopped with an available snapshot");
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
+  const snapshotBytes = await loadSnapshot(c.env.ARTIFACTS, row.snapshotKey);
+  if (!snapshotBytes) return jsonError(c, 410, "snapshot_missing", "live run snapshot is unavailable");
+  const result = await restoreInContainer(runner, row.id, { snapshot: { bytes: snapshotBytes } });
+  if (!result.ok) return c.json(result, 422);
+  await updateLiveState(c.env.DB, row.id, "ready", { resumedAt: new Date().toISOString() });
+  return c.json({ ...result, status: "ready" });
+});
+
+api.delete("/api/runs/:id", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  if (row instanceof Response) return row;
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
+  const result = await deleteLiveInContainer(runner, row.id);
+  if (row.snapshotKey && c.env.ARTIFACTS) await c.env.ARTIFACTS.delete(row.snapshotKey);
+  await updateLiveState(c.env.DB, row.id, "deleted", { deletedAt: new Date().toISOString() });
+  return c.json({ ...result, status: "deleted" });
+});
+
+api.post("/api/runs/:id/fork", async (c) => {
+  const auth = authorize(c.req.raw, null, c.env);
+  if (auth) return auth;
+  const source = await requireRunnableLiveRun(c.env.DB, c.req.param("id"));
+  if (source instanceof Response) return source;
+  const runner = runnerForRun(c.env, source);
+  if (!runner || !source.input) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
+  if (!c.env.ARTIFACTS) return jsonError(c, 503, "snapshot_storage_unavailable", "ARTIFACTS binding is required for live run snapshots");
+  const snapshot = await snapshotInContainer(runner, source.id);
+  if (!snapshot.ok || !snapshot.snapshot?.bytes) return c.json(snapshot, 422);
+  try {
+    const sourceSnapshotKey = await storeSnapshot(c.env.ARTIFACTS, source.id, snapshot.snapshot.bytes);
+    await updateLiveState(c.env.DB, source.id, "stopped", { snapshotKey: sourceSnapshotKey, stoppedAt: new Date().toISOString() });
+    const childId = `run_${crypto.randomUUID()}`;
+    const childSnapshotKey = await storeSnapshot(c.env.ARTIFACTS, childId, snapshot.snapshot.bytes);
+    const childInput = { ...source.input, live: true, public: false };
+    const initial = { ok: true, receipts: [], diff: "", live: { runId: childId }, forkedFrom: source.id };
+    await recordRun(c.env.DB, { id: childId, input: childInput, result: initial, status: "restoring", forkedFrom: source.id, snapshotKey: childSnapshotKey });
+    const restored = await restoreInContainer(runner, childId, { snapshot: { bytes: snapshot.snapshot.bytes } });
+    if (!restored.ok) return c.json({ runId: childId, ...restored }, 422);
+    await updateLiveState(c.env.DB, childId, "ready", { forkedFrom: source.id });
+    return c.json({ ok: true, runId: childId, forkedFrom: source.id, status: "ready" }, 201);
+  } catch (error) {
+    return jsonError(c, 503, "snapshot_storage_unavailable", error instanceof Error ? error.message : String(error));
   }
 });
 
 api.all("/api/runs/:id/preview/*", async (c) => {
   const auth = authorize(c.req.raw, null, c.env);
   if (auth) return auth;
-  const row = await requireLiveRun(c.env.DB, c.req.param("id"));
+  const row = await requireRunnableLiveRun(c.env.DB, c.req.param("id"));
   if (row instanceof Response) return row;
-  if (!c.env.CLOUDBOX_RUNNER) return jsonError(c, 503, "runner_unavailable", "Cloudflare Container runner is only available in the deployed Worker");
+  const runner = runnerForRun(c.env, row);
+  if (!runner) return jsonError(c, 503, "runner_unavailable", "Requested Cloudflare Container runner is only available in the deployed Worker");
   const suffix = c.req.path.split(`/api/runs/${row.id}/preview/`)[1] ?? "";
-  return previewInContainer(c.env.CLOUDBOX_RUNNER, row.id, c.req.raw, suffix);
+  return previewInContainer(runner, row.id, c.req.raw, suffix);
 });
 
 api.all("*", (c) => jsonError(c, 404, "not_found", "unknown API route"));
+
+function selectRunner(env: CloudboxBindings, input: Pick<ContainerRunRequest, "desktop"> | null | undefined): unknown {
+  return input?.desktop === true ? env.CLOUDBOX_DESKTOP_RUNNER : env.CLOUDBOX_RUNNER;
+}
+
+function runnerForRun(env: CloudboxBindings, row: RunRecord): unknown {
+  return selectRunner(env, row.input);
+}
 
 function authorize(request: Request, spec: ComputerSpec | null, env: CloudboxBindings): Response | null {
   if (isPublicDemoSpec(spec)) return null;
@@ -237,6 +327,10 @@ function validateRun(input: ContainerRunRequest | null): Response | null {
   if (input.artifact !== undefined && (typeof input.artifact !== "string" || input.artifact.length > 240)) return jsonErrorResponse(400, "bad_run", "artifact must be a short relative path");
   if (input.public !== undefined && typeof input.public !== "boolean") return jsonErrorResponse(400, "bad_run", "public must be a boolean");
   if (input.live !== undefined && typeof input.live !== "boolean") return jsonErrorResponse(400, "bad_run", "live must be a boolean");
+  if (input.desktop !== undefined && typeof input.desktop !== "boolean") return jsonErrorResponse(400, "bad_run", "desktop must be a boolean");
+  if (input.desktop === true && input.live !== true) return jsonErrorResponse(400, "bad_run", "desktop requires live=true");
+  if (input.ttlSeconds !== undefined && (!Number.isInteger(input.ttlSeconds) || (input.ttlSeconds as number) < 60 || (input.ttlSeconds as number) > 2_592_000)) return jsonErrorResponse(400, "bad_run", "ttlSeconds must be an integer between 60 and 2592000");
+  if (input.ttlSeconds !== undefined && input.live !== true) return jsonErrorResponse(400, "bad_run", "ttlSeconds requires live=true");
   return null;
 }
 
@@ -249,6 +343,9 @@ type RunRecord = {
   isPublic: boolean;
   input: ContainerRunRequest | null;
   result: unknown;
+  snapshotKey?: string | null;
+  forkedFrom?: string | null;
+  expiresAt?: string | null;
 };
 
 async function ensureRunsTable(db?: D1Database): Promise<void> {
@@ -269,20 +366,26 @@ async function ensureRunsTable(db?: D1Database): Promise<void> {
   if (!names.has("result")) await db.prepare("ALTER TABLE runs ADD COLUMN result TEXT NOT NULL DEFAULT '{}'").run();
   if (!names.has("input")) await db.prepare("ALTER TABLE runs ADD COLUMN input TEXT").run();
   if (!names.has("is_public")) await db.prepare("ALTER TABLE runs ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0").run();
+  if (!names.has("snapshot_key")) await db.prepare("ALTER TABLE runs ADD COLUMN snapshot_key TEXT").run();
+  if (!names.has("forked_from")) await db.prepare("ALTER TABLE runs ADD COLUMN forked_from TEXT").run();
+  if (!names.has("expires_at")) await db.prepare("ALTER TABLE runs ADD COLUMN expires_at TEXT").run();
 }
 
-async function recordRun(db: D1Database | undefined, row: { id: string; input: ContainerRunRequest | null; result: unknown; status: string }): Promise<void> {
+async function recordRun(db: D1Database | undefined, row: { id: string; input: ContainerRunRequest | null; result: unknown; status: string; snapshotKey?: string | null; forkedFrom?: string | null }): Promise<void> {
   if (!db || !row.input) return;
   await ensureRunsTable(db);
   const artifact = typeof row.input.artifact === "string" ? row.input.artifact : null;
   const isPublic = row.input.public === true ? 1 : 0;
   const now = new Date().toISOString();
+  const expiresAt = row.input.live === true
+    ? new Date(Date.now() + (row.input.ttlSeconds ?? 3_600) * 1000).toISOString()
+    : null;
   if (typeof (db as any).batch === "function") {
     await db.prepare("INSERT OR IGNORE INTO computers (id, name, persona, mode, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .bind("api", "API runs", "cloudbox", "container", "{}", now)
       .run();
   }
-  await db.prepare("INSERT OR REPLACE INTO runs (id, computer_id, mode, created_at, updated_at, repo, status, artifact, result, input, is_public) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+  await db.prepare("INSERT OR REPLACE INTO runs (id, computer_id, mode, created_at, updated_at, repo, status, artifact, result, input, is_public, snapshot_key, forked_from, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
     .bind(
       row.id,
       "api",
@@ -295,6 +398,9 @@ async function recordRun(db: D1Database | undefined, row: { id: string; input: C
       JSON.stringify(row.result).slice(0, 200_000),
       JSON.stringify(row.input).slice(0, 20_000),
       isPublic,
+      row.snapshotKey ?? null,
+      row.forkedFrom ?? null,
+      expiresAt,
     )
     .run();
 }
@@ -309,7 +415,7 @@ async function listRuns(db?: D1Database): Promise<Pick<RunRecord, "id" | "create
 async function getRun(db: D1Database | undefined, id: string): Promise<RunRecord | null> {
   if (!db) return null;
   await ensureRunsTable(db);
-  const row = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact, result, input, is_public as isPublic FROM runs WHERE id = ?").bind(id).first<any>();
+  const row = await db.prepare("SELECT id, created_at as createdAt, repo, status, artifact, result, input, is_public as isPublic, snapshot_key as snapshotKey, forked_from as forkedFrom, expires_at as expiresAt FROM runs WHERE id = ?").bind(id).first<any>();
   if (!row) return null;
   return {
     id: row.id,
@@ -320,13 +426,55 @@ async function getRun(db: D1Database | undefined, id: string): Promise<RunRecord
     isPublic: row.isPublic === 1 || row.isPublic === true,
     input: row.input ? (safeParse(row.input) as ContainerRunRequest | null) : null,
     result: safeParse(row.result),
+    snapshotKey: row.snapshotKey ?? null,
+    forkedFrom: row.forkedFrom ?? null,
+    expiresAt: row.expiresAt ?? null,
   };
+}
+
+async function updateLiveState(db: D1Database | undefined, id: string, status: string, changes: { snapshotKey?: string; forkedFrom?: string; stoppedAt?: string; resumedAt?: string; deletedAt?: string } = {}): Promise<void> {
+  if (!db) return;
+  await ensureRunsTable(db);
+  const row = await getRun(db, id);
+  if (!row) return;
+  const result = { ...(typeof row.result === "object" && row.result ? row.result as Record<string, unknown> : {}), lifecycle: { status, ...changes } };
+  await db.prepare("UPDATE runs SET status = ?, updated_at = ?, result = ?, snapshot_key = COALESCE(?, snapshot_key), forked_from = COALESCE(?, forked_from) WHERE id = ?")
+    .bind(status, new Date().toISOString(), JSON.stringify(result).slice(0, 200_000), changes.snapshotKey ?? null, changes.forkedFrom ?? null, id)
+    .run();
+}
+
+async function storeSnapshot(bucket: R2Bucket | undefined, runId: string, bytes: string): Promise<string> {
+  if (!bucket) throw new Error("ARTIFACTS binding is required for live run snapshots");
+  const key = `snapshots/${runId}/${crypto.randomUUID()}.tar.gz`;
+  await bucket.put(key, Uint8Array.from(atob(bytes), (character) => character.charCodeAt(0)), {
+    httpMetadata: { contentType: "application/gzip" },
+    customMetadata: { runId, createdAt: new Date().toISOString() },
+  });
+  return key;
+}
+
+async function loadSnapshot(bucket: R2Bucket | undefined, key: string): Promise<string | null> {
+  if (!bucket) return null;
+  const object = await bucket.get(key);
+  if (!object) return null;
+  const bytes = new Uint8Array(await object.arrayBuffer());
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 async function requireLiveRun(db: D1Database | undefined, id: string): Promise<RunRecord | Response> {
   const row = await getRun(db, id);
   if (!row) return jsonErrorResponse(404, "run_not_found", "run not found");
   if (row.input?.live !== true) return jsonErrorResponse(409, "run_not_live", "run was not created with live: true");
+  if (row.expiresAt && Date.parse(row.expiresAt) <= Date.now() && row.status !== "deleted") return jsonErrorResponse(410, "run_expired", "live run TTL has expired");
+  return row;
+}
+
+async function requireRunnableLiveRun(db: D1Database | undefined, id: string): Promise<RunRecord | Response> {
+  const row = await requireLiveRun(db, id);
+  if (row instanceof Response) return row;
+  if (["stopped", "deleted"].includes(row.status)) return jsonErrorResponse(409, "run_not_running", `live run is ${row.status}`);
   return row;
 }
 

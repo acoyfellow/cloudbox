@@ -14,6 +14,14 @@ CREATE TABLE IF NOT EXISTS runs (
   status TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  repo TEXT NOT NULL DEFAULT '',
+  artifact TEXT,
+  result TEXT NOT NULL DEFAULT '{}',
+  input TEXT,
+  is_public INTEGER NOT NULL DEFAULT 0,
+  snapshot_key TEXT,
+  forked_from TEXT,
+  expires_at TEXT,
   FOREIGN KEY (computer_id) REFERENCES computers(id)
 );
 

@@ -57,6 +57,10 @@ jobs:
           CLOUDBOX_RUNNER_NAME: cloudbox-runner-v2
           CLOUDBOX_RUNNER_INSTANCE_TYPE: ${{ vars.CLOUDBOX_RUNNER_INSTANCE_TYPE || 'standard' }}
           CLOUDBOX_RUNNER_MAX_INSTANCES: ${{ vars.CLOUDBOX_RUNNER_MAX_INSTANCES || '2' }}
+          CLOUDBOX_DESKTOP_RUNNER_RESOURCE_ID: cloudbox-desktop-runner
+          CLOUDBOX_DESKTOP_RUNNER_NAME: cloudbox-desktop-runner
+          CLOUDBOX_DESKTOP_RUNNER_INSTANCE_TYPE: ${{ vars.CLOUDBOX_DESKTOP_RUNNER_INSTANCE_TYPE || 'standard-2' }}
+          CLOUDBOX_DESKTOP_RUNNER_MAX_INSTANCES: ${{ vars.CLOUDBOX_DESKTOP_RUNNER_MAX_INSTANCES || '1' }}
           CLOUDBOX_GITLAB_TOKEN: ${{ secrets.CLOUDBOX_GITLAB_TOKEN }}
         run: bun run alchemy:deploy
         timeout-minutes: 10

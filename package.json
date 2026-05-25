@@ -7,7 +7,8 @@
   "exports": {
     "./client": "./src/client.ts",
     "./generate-proof": "./src/generate-proof.ts",
-    "./agent-computer": "./src/agent-computer.ts"
+    "./agent-computer": "./src/agent-computer.ts",
+    "./live-run-tools": "./src/live-run-tools.ts"
   },
   "scripts": {
     "build": "bun --filter @cloudbox/web build",
@@ -28,10 +29,15 @@
     "stratus:smoke": "node scripts/stratus-smoke.mjs",
     "runner:test": "node scripts/runner-smoke.mjs",
     "runner:smoke": "node scripts/runner-smoke.mjs",
+    "runner:desktop-smoke": "node scripts/runner-desktop-smoke.mjs",
     "proof:runner": "node scripts/proof-runner-readiness.mjs",
     "proof:launch": "node scripts/proof-launch-readiness.mjs",
     "proof:ci": "node scripts/proof-ci-smoke.mjs",
     "proof:live-preview": "node scripts/proof-live-preview.mjs",
+    "proof:desktop-shell": "node scripts/proof-desktop-shell.mjs",
+    "live:preview": "node scripts/live-preview-session.mjs",
+    "live": "node scripts/cloudbox-live.mjs",
+    "live:sync": "node scripts/cloudbox-live-sync.mjs",
     "proof": "bun run proof:runner && bun run proof:launch && bun run proof:ci",
     "og:build": "node scripts/build-og.mjs",
     "ci": "bun run check"

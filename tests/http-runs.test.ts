@@ -65,6 +65,16 @@ describe("/api/runs auth and demo policy", () => {
     expect(body.error).toBe("runner_unavailable");
   });
 
+  it("does not silently fall back to the standard runner for desktop runs", async () => {
+    const response = await api.fetch(
+      request({ ...validRun, live: true, desktop: true }, { authorization: "Bearer secret" }),
+      { CLOUDBOX_API_TOKEN: "secret", CLOUDBOX_RUNNER: { fetch: async () => Response.json({ ok: true }) } },
+    );
+    const body = await bodyOf(response);
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("runner_unavailable");
+  });
+
   it("allows constrained public demo runs", async () => {
     const response = await api.fetch(request(validRun, { "x-cloudbox-demo": "1" }), {});
     const body = await bodyOf(response);

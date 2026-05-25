@@ -9,6 +9,10 @@ export type ContainerRunRequest = {
   artifact?: string;
   timeoutMs?: number;
   live?: boolean;
+  /** Boot browser shell/desktop services for this interactive run when the deployed runner image supports them. */
+  desktop?: boolean;
+  /** Optional lifetime for an interactive run before it expires. Default 1 hour; max 30 days. */
+  ttlSeconds?: number;
   /** When true, the run is readable unauthenticated at GET /api/runs/:id/public and at /runs/:id. */
   public?: boolean;
 };
@@ -77,6 +81,29 @@ export type ContainerLiveDevResult = {
   runnerReceipts?: RunnerLifecycleReceipt[];
 };
 
+export type ContainerLiveSnapshotResult = {
+  ok: boolean;
+  runId?: string;
+  snapshot?: { bytes: string; size: number };
+  error?: string;
+  runnerReceipts?: RunnerLifecycleReceipt[];
+};
+
+export type ContainerLiveRestoreResult = {
+  ok: boolean;
+  runId?: string;
+  error?: string;
+  runnerReceipts?: RunnerLifecycleReceipt[];
+};
+
+export type ContainerLiveDeleteResult = {
+  ok: boolean;
+  runId?: string;
+  deleted?: boolean;
+  error?: string;
+  runnerReceipts?: RunnerLifecycleReceipt[];
+};
+
 export type ContainerPreviewResponse = Response;
 
 export async function runInContainer(runner: unknown, input: ContainerRunRequest, runId?: string): Promise<ContainerRunResult> {
@@ -100,6 +127,18 @@ export async function writeInContainer(runner: unknown, runId: string, input: { 
 
 export async function devInContainer(runner: unknown, runId: string, input: { command: string; port: number }): Promise<ContainerLiveDevResult> {
   return runnerJson<ContainerLiveDevResult>(runner, `/live/${encodeURIComponent(runId)}/dev`, input);
+}
+
+export async function snapshotInContainer(runner: unknown, runId: string): Promise<ContainerLiveSnapshotResult> {
+  return runnerJson<ContainerLiveSnapshotResult>(runner, `/live/${encodeURIComponent(runId)}/snapshot`, {});
+}
+
+export async function restoreInContainer(runner: unknown, runId: string, input: { snapshot: { bytes: string } }): Promise<ContainerLiveRestoreResult> {
+  return runnerJson<ContainerLiveRestoreResult>(runner, `/live/${encodeURIComponent(runId)}/restore`, input);
+}
+
+export async function deleteLiveInContainer(runner: unknown, runId: string): Promise<ContainerLiveDeleteResult> {
+  return runnerJson<ContainerLiveDeleteResult>(runner, `/live/${encodeURIComponent(runId)}/delete`, {});
 }
 
 export async function previewInContainer(runner: unknown, runId: string, request: Request, suffix: string): Promise<ContainerPreviewResponse> {

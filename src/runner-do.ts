@@ -30,6 +30,9 @@ export class CloudboxRunner extends DurableObject {
   }
 }
 
+/** Separate heavy runner binding for browser shell/desktop sessions. */
+export class CloudboxDesktopRunner extends CloudboxRunner {}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

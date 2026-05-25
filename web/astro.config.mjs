@@ -23,7 +23,7 @@ export default defineConfig({
     },
     workerEntryPoint: {
       path: "src/worker.ts",
-      namedExports: ["ComputerDO", "CloudboxRunner"],
+      namedExports: ["ComputerDO", "CloudboxRunner", "CloudboxDesktopRunner"],
     },
   }),
   integrations: [react({ jsxImportSource: "react" }), mdx()],

@@ -37,7 +37,8 @@ Open the local URL and click **Demo**.
 Cloudbox is built to be your Cloudbox. You fork, you deploy, you own the data plane. Cloudflare resources are provisioned through `alchemy.run.ts`:
 
 - Worker for the web app and API
-- `CloudboxRunner` Durable Object that fronts a Cloudflare Container (`cloudbox-runner`) for real execution
+- `CloudboxRunner` Durable Object that fronts a lightweight Cloudflare Container (`cloudbox-runner`) for normal proof execution
+- `CloudboxDesktopRunner` Durable Object that fronts a heavier browser-shell/desktop Container (`cloudbox-desktop-runner`) when a live run opts into `desktop: true`
 - `ComputerDO` Durable Object namespace for per-workspace state and receipts
 - R2 bucket for artifacts
 - D1 database for indexes and migrations
@@ -77,6 +78,7 @@ Worker:          cloudbox
 Container:       cloudbox-runner
 Runner DO class: CloudboxRunner
 Runner container app: cloudbox-runner-v2
+Desktop runner:  cloudbox-desktop-runner (CloudboxDesktopRunner)
 Workspace DO:    ComputerDO (CLOUDBOX_COMPUTER)
 D1:              cloudbox-prod
 R2:              cloudbox-artifacts
@@ -86,8 +88,10 @@ State store:     alchemy-state-store
 Runner sizing is configurable at deploy time:
 
 ```txt
-CLOUDBOX_RUNNER_INSTANCE_TYPE=standard   # or the largest instance type your account supports
+CLOUDBOX_RUNNER_INSTANCE_TYPE=standard           # normal proof runner
 CLOUDBOX_RUNNER_MAX_INSTANCES=2
+CLOUDBOX_DESKTOP_RUNNER_INSTANCE_TYPE=standard-2 # desktop/browser-shell sessions
+CLOUDBOX_DESKTOP_RUNNER_MAX_INSTANCES=1
 ```
 
 Use GitHub environment variables for sizing. The workflow defaults production to `standard`; local Alchemy fallback is `lite`.

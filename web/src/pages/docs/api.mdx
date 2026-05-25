@@ -9,8 +9,17 @@ description: "The Cloudbox Worker exposes a small HTTP protocol. Repo runs go th
 
 ```
 GET    /api/health
-POST   /api/runs            # real repo run in the CloudboxRunner container
-POST   /api/computers       # materialize a ComputerSpec workspace
+POST   /api/runs                 # real repo run in the CloudboxRunner container
+POST   /api/runs/:id/exec        # live run: follow-up command
+GET    /api/runs/:id/read?path=...   # live run: read file
+POST   /api/runs/:id/write       # live run: write file
+POST   /api/runs/:id/dev         # live run: start/reuse dev process
+POST   /api/runs/:id/stop        # live run: snapshot workspace to R2 and pause
+POST   /api/runs/:id/resume      # live run: restore snapshot into the runner
+POST   /api/runs/:id/fork        # live run: clone current workspace state
+DELETE /api/runs/:id             # live run: delete active/snapshotted state
+GET    /api/runs/:id/preview/*   # live run: secure preview proxy
+POST   /api/computers            # materialize a ComputerSpec workspace
 POST   /api/brief
 GET    /api/c/:id/list
 GET    /api/c/:id/read?path=...
@@ -70,6 +79,125 @@ Recent runs are available when D1 is bound:
 ```sh
 GET /api/runs/recent
 GET /api/runs/:runId
+```
+
+## Keep a run alive
+
+Set `"live": true` when creating a run to retain the cloned repo in the runner long enough for human or agent steering.
+
+```sh
+curl -X POST https://cloudbox.coey.dev/api/runs \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{
+    "repo": "https://github.com/acoyfellow/cloudbox",
+    "verify": ["test -f package.json"],
+    "live": true
+  }'
+```
+
+Then use the returned `runId`:
+
+```sh
+curl -X POST https://cloudbox.coey.dev/api/runs/$RUN_ID/exec \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"command":"pwd"}'
+
+curl "https://cloudbox.coey.dev/api/runs/$RUN_ID/read?path=README.md" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN"
+
+curl -X POST https://cloudbox.coey.dev/api/runs/$RUN_ID/write \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"path":"notes/live.md","content":"hello"}'
+```
+
+## Start a dev preview
+
+A live run can launch a long-running process and proxy traffic through Cloudbox. The proxy preserves HTTP and WebSocket traffic so dev-server preview loops can sit behind one authenticated URL.
+
+```sh
+curl -X POST https://cloudbox.coey.dev/api/runs/$RUN_ID/dev \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"command":"bun run dev --host 0.0.0.0","port":5173}'
+
+open "https://cloudbox.coey.dev/api/runs/$RUN_ID/preview/"
+```
+
+For a quick session helper:
+
+```sh
+CLOUDBOX_API_TOKEN=... bun run live:preview
+# → { "runId": "...", "previewUrl": "..." }
+```
+
+For a steerable session CLI:
+
+```sh
+CLOUDBOX_API_TOKEN=... bun run live start \
+  https://github.com/acoyfellow/cloudbox \
+  "bun run dev --host 0.0.0.0" \
+  5173
+
+bun run live open
+bun run live exec "pwd"
+bun run live read README.md
+bun run live write notes/live.md "agent changed this"
+```
+
+`start` writes `.cloudbox-live.json` in the current directory. The one-way sync helper reads that state and pushes local text-file edits into the live run:
+
+```sh
+CLOUDBOX_API_TOKEN=... bun run live:sync
+```
+
+Programmatic agent/MCP adapters can build on `cloudbox/live-run-tools`, which exposes the same create/dev/read/write/exec/preview/stop/resume/fork/delete primitives without introducing a second public product surface.
+
+## Stop, resume, and fork a live workspace
+
+Live runs accept an optional `ttlSeconds` value between 60 seconds and 30 days. The default lifetime is one hour. Stopping archives the repo workspace into the configured R2 artifacts bucket; resuming restores it into a live runner. Forking snapshots the source and restores the same workspace into an independent child run.
+
+```sh
+curl -X POST "https://cloudbox.coey.dev/api/runs/$RUN_ID/stop" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN"
+
+curl -X POST "https://cloudbox.coey.dev/api/runs/$RUN_ID/resume" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN"
+
+curl -X POST "https://cloudbox.coey.dev/api/runs/$RUN_ID/fork" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN"
+```
+
+The session helper includes matching lifecycle commands:
+
+```sh
+bun run live info
+bun run live stop
+bun run live resume
+bun run live fork
+bun run live delete
+```
+
+## Browser shell and desktop prototype
+
+Set `"desktop": true` together with `"live": true` to route the run to the heavier desktop runner binding rather than the normal proof runner. The Debian prototype serves a browser terminal through shellinabox and a lightweight Xvfb/noVNC Chromium desktop through the authenticated preview proxy:
+
+```sh
+bun run live start https://github.com/acoyfellow/cloudbox "bun run dev --host 0.0.0.0" 5173 --desktop
+bun run live shell
+bun run live desktop
+```
+
+Cloudflare Containers' account/operator SSH is not the hosted end-user interface here; shell access is intentionally carried over authenticated HTTP/WebSocket preview routes.
+
+For a deployed smoke test, run:
+
+```sh
+CLOUDBOX_E2E_URL=https://cloudbox.coey.dev \
+CLOUDBOX_API_TOKEN=... \
+bun run proof:live-preview
 ```
 
 ## Materialize a workspace

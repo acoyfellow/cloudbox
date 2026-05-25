@@ -43,6 +43,10 @@
       {
         "name": "CLOUDBOX_RUNNER",
         "class_name": "CloudboxRunner"
+      },
+      {
+        "name": "CLOUDBOX_DESKTOP_RUNNER",
+        "class_name": "CloudboxDesktopRunner"
       }
     ]
   },
@@ -62,6 +66,14 @@
       "image_build_context": "./runner",
       "instance_type": "lite",
       "max_instances": 2
+    },
+    {
+      "name": "cloudbox-desktop-runner",
+      "class_name": "CloudboxDesktopRunner",
+      "image": "./runner-desktop/Dockerfile",
+      "image_build_context": "./runner",
+      "instance_type": "standard-1",
+      "max_instances": 1
     }
   ]
 }

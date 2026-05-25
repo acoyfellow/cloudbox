@@ -7,6 +7,7 @@ describe("documented package exports", () => {
       "./client": "./src/client.ts",
       "./generate-proof": "./src/generate-proof.ts",
       "./agent-computer": "./src/agent-computer.ts",
+      "./live-run-tools": "./src/live-run-tools.ts",
     });
   });
 });

@@ -33,6 +33,16 @@ jobs:
         env:
           CLOUDBOX_E2E_URL: https://cloudbox.coey.dev
           CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
+      - name: Live preview smoke
+        run: node scripts/proof-live-preview.mjs
+        env:
+          CLOUDBOX_E2E_URL: https://cloudbox.coey.dev
+          CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
+      - name: Desktop and shell presence smoke
+        run: node scripts/proof-desktop-shell.mjs
+        env:
+          CLOUDBOX_E2E_URL: https://cloudbox.coey.dev
+          CLOUDBOX_API_TOKEN: ${{ secrets.CLOUDBOX_API_TOKEN }}
       - name: Browser video smoke
         run: node scripts/browser-agent-video-smoke.mjs
         env:

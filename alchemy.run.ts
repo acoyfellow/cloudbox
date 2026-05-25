@@ -47,6 +47,7 @@ const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
 
 const runnerResourceId = process.env.CLOUDBOX_RUNNER_RESOURCE_ID || "cloudbox-runner";
 const runnerName = process.env.CLOUDBOX_RUNNER_NAME || (isProd ? "cloudbox-runner-v2" : `${app.stage}-cloudbox-runner`);
+const runnerInstanceType = process.env.CLOUDBOX_RUNNER_INSTANCE_TYPE || (isProd ? "standard" : "lite");
 
 const CLOUDBOX_RUNNER = await Container(runnerResourceId, {
   name: runnerName,
@@ -55,8 +56,23 @@ const CLOUDBOX_RUNNER = await Container(runnerResourceId, {
     context: "./runner",
     dockerfile: "Dockerfile",
   },
-  instanceType: process.env.CLOUDBOX_RUNNER_INSTANCE_TYPE || "lite",
+  instanceType: runnerInstanceType,
   maxInstances: Number(process.env.CLOUDBOX_RUNNER_MAX_INSTANCES || 2),
+  adopt: true,
+  dev: { remote: true },
+});
+
+const desktopRunnerResourceId = process.env.CLOUDBOX_DESKTOP_RUNNER_RESOURCE_ID || "cloudbox-desktop-runner";
+const desktopRunnerName = process.env.CLOUDBOX_DESKTOP_RUNNER_NAME || (isProd ? "cloudbox-desktop-runner" : `${app.stage}-cloudbox-desktop-runner`);
+const CLOUDBOX_DESKTOP_RUNNER = await Container(desktopRunnerResourceId, {
+  name: desktopRunnerName,
+  className: "CloudboxDesktopRunner",
+  build: {
+    context: "./runner",
+    dockerfile: "../runner-desktop/Dockerfile",
+  },
+  instanceType: process.env.CLOUDBOX_DESKTOP_RUNNER_INSTANCE_TYPE || (isProd ? "standard-2" : "standard-1"),
+  maxInstances: Number(process.env.CLOUDBOX_DESKTOP_RUNNER_MAX_INSTANCES || 1),
   adopt: true,
   dev: { remote: true },
 });
@@ -77,6 +93,7 @@ export const WORKER = await Worker("cloudbox-worker", {
     ARTIFACTS,
     CLOUDBOX_COMPUTER,
     CLOUDBOX_RUNNER,
+    CLOUDBOX_DESKTOP_RUNNER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
     ...(process.env.CLOUDBOX_API_TOKEN
       ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }

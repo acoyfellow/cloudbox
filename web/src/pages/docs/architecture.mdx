@@ -2,7 +2,7 @@
 layout: "@/layouts/Doc.astro"
 title: "Architecture"
 eyebrow: "Cloudflare-native"
-description: "Cloudbox is a Worker, one Container runner for real repo execution, one Durable Object per workspace, R2-backed bytes, and receipt-first grading."
+description: "Cloudbox is a Worker, lightweight and desktop Container runners for real repo execution, one Durable Object per workspace, R2-backed bytes, and receipt-first grading."
 ---
 
 ## Shape
@@ -19,13 +19,14 @@ Cloudbox Worker (Astro + Hono)
    ├─ auth, validation, API/docs
    │
    ▼
-CloudboxRunner Durable Object
+CloudboxRunner / CloudboxDesktopRunner Durable Object
    │
-   ├─ boots / reuses the container
+   ├─ selects lightweight proof execution or opt-in desktop execution
+   ├─ boots / reuses the matching container
    ├─ records runnerReceipts (boot, request, error)
    │
    ▼
-Cloudflare Container (cloudbox-runner)
+Cloudflare Container (cloudbox-runner or cloudbox-desktop-runner)
    │
    ├─ git clone repo
    ├─ run commands
@@ -34,9 +35,9 @@ Cloudflare Container (cloudbox-runner)
    └─ return { receipts, artifact, diff }
 ```
 
-The long-lived control plane is the Worker. The real execution backend is a Cloudflare Container running Linux tools like `git`, `node`, `bun`, and `pnpm`. The `CloudboxRunner` DO owns container lifecycle so a hot container can serve repeated requests; lifecycle events ride back on every response as `runnerReceipts`.
+The long-lived control plane is the Worker. Normal runs execute in the lightweight `CloudboxRunner` Container with Linux tools such as `git`, `node`, `bun`, and `pnpm`. Runs created with `{ live: true, desktop: true }` route to `CloudboxDesktopRunner`, a separate heavier Container with browser shell, Xvfb/noVNC, and Chromium. Lifecycle events ride back on every response as `runnerReceipts`.
 
-Runner size is a deploy-time choice. Set `CLOUDBOX_RUNNER_INSTANCE_TYPE` to the largest instance type your account supports and `CLOUDBOX_RUNNER_MAX_INSTANCES` for concurrency. Heavy repos need headroom.
+Runner size is a deploy-time choice. Use `CLOUDBOX_RUNNER_INSTANCE_TYPE` / `CLOUDBOX_RUNNER_MAX_INSTANCES` for normal proof concurrency and `CLOUDBOX_DESKTOP_RUNNER_INSTANCE_TYPE` / `CLOUDBOX_DESKTOP_RUNNER_MAX_INSTANCES` for desktop sessions. The latter defaults higher because Chromium requires headroom.
 
 <div class="not-prose rounded-xl border border-kumo-line bg-kumo-elevated/20 p-4">
   <div class="grid gap-3 sm:grid-cols-3">
@@ -45,8 +46,8 @@ Runner size is a deploy-time choice. Set `CLOUDBOX_RUNNER_INSTANCE_TYPE` to the 
       <p class="mt-1 text-sm leading-6 text-kumo-strong">The API and docs site. It accepts run requests from agents, browsers, scripts, and CI.</p>
     </div>
     <div class="rounded-lg border border-orange-200 bg-orange-50 p-3">
-      <div class="font-semibold text-orange-950">CloudboxRunner + Container</div>
-      <p class="mt-1 text-sm leading-6 text-orange-900">A Durable Object fronts a Cloudflare Container. It clones repos, runs commands, verifies work, and returns logs, diff, artifacts, and runnerReceipts.</p>
+      <div class="font-semibold text-orange-950">Runner Containers</div>
+      <p class="mt-1 text-sm leading-6 text-orange-900">Lightweight runs produce proof cheaply; opt-in desktop runs get shell, noVNC, and Chromium without bloating the standard path.</p>
     </div>
     <div class="rounded-lg border border-kumo-line bg-kumo-base p-3">
       <div class="font-semibold text-kumo-default">ComputerDO + R2</div>
