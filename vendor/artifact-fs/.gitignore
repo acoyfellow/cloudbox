@@ -1,0 +1,33 @@
+# Build output
+/artifact-fs
+*.exe
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Coverage
+coverage.html
+coverage.txt
+*.coverprofile
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+__debug_bin*
+*.prof
+
+# Environment / secrets
+.env
+.env.*

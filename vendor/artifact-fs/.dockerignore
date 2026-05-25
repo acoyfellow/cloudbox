@@ -1,0 +1,14 @@
+**
+!go.mod
+!go.sum
+!cmd
+!cmd/
+!cmd/**
+!internal
+!internal/
+!internal/**
+!examples
+!examples/entrypoint.sh
+!examples/cloudflare-sandbox-sdk
+!examples/cloudflare-sandbox-sdk/container_src
+!examples/cloudflare-sandbox-sdk/container_src/**
