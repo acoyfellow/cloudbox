@@ -10,7 +10,6 @@ import { computerEgressHandler, type ComputerEgressEnv, type ComputerEgressParam
 export class CloudboxSandbox extends Sandbox<ComputerEgressEnv> {
   // Added by the reviewed host-only HTTPS interception patch carried in
   // patches/@cloudflare__containers@0.3.4-host-https.patch.
-  // @ts-expect-error Added to Container/Sandbox by the reviewed host-only interception patch at install time.
   override interceptHttpsByHost = true;
   async configureGitLabTransport(params: ComputerEgressParams): Promise<void> {
     await this.setOutboundByHosts<ComputerEgressParams>({
