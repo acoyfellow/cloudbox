@@ -20,6 +20,21 @@ export interface OAuthProxyBinding {
   oauthFetch(userId: string, appId: string, request: Request): Promise<Response>;
 }
 
+export type OAuthFlowStore = {
+  put(state: string, ownerId: string, ttlSeconds?: number): Promise<void>;
+  consume(state: string): Promise<string | null>;
+};
+
+export class MemoryOAuthFlowStore implements OAuthFlowStore {
+  private readonly states = new Map<string, string>();
+  async put(state: string, ownerId: string): Promise<void> { this.states.set(state, ownerId.toLowerCase()); }
+  async consume(state: string): Promise<string | null> {
+    const ownerId = this.states.get(state) ?? null;
+    this.states.delete(state);
+    return ownerId;
+  }
+}
+
 export function findGitLabApplication(apps: OAuthApplication[]): OAuthApplication | null {
   return apps.find((app) => app.hostname === "gitlab-access.cfdata.org" || app.hostAliases?.includes("gitlab.cfdata.org")) ?? null;
 }

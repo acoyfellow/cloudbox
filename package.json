@@ -38,6 +38,7 @@
     "live:preview": "node scripts/live-preview-session.mjs",
     "live": "node scripts/cloudbox-live.mjs",
     "live:sync": "node scripts/cloudbox-live-sync.mjs",
+    "e2e:private-repo": "node scripts/private-repo-e2e.mjs",
     "proof": "bun run proof:runner && bun run proof:launch && bun run proof:ci",
     "og:build": "node scripts/build-og.mjs",
     "ci": "bun run check"

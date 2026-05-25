@@ -7,7 +7,7 @@ import { handleLocalAction, materializeLocal } from "./local-demo.ts";
 import { assertComputerPath, prepareOwnerComputer, type SandboxComputerBindings } from "./sandbox-computer.ts";
 import { buildGitLabRepoKey, type RepoGrantKind } from "./gitlab-egress.ts";
 import { D1ComputerGrantStore, type ComputerGrantStore } from "./computer-grants.ts";
-import { findGitLabApplication, type OAuthProxyBinding } from "./oauth-proxy.ts";
+import { findGitLabApplication, type OAuthFlowStore, type OAuthProxyBinding } from "./oauth-proxy.ts";
 import { createMergeRequest, mountPrivateRepo, publishBranch } from "./repo-workflow.ts";
 
 export type CloudboxBindings = {
@@ -21,6 +21,7 @@ export type CloudboxBindings = {
   CLOUDBOX_INTERNAL_TOKEN?: string;
   computerGrants?: ComputerGrantStore;
   OAUTH_PROXY?: OAuthProxyBinding;
+  OAUTH_FLOW_STORE?: OAuthFlowStore;
   createMergeRequest?: (input: { ownerId: string; remote: string; sourceBranch: string; targetBranch: string; title: string; description?: string }) => Promise<{ url: string; iid?: number }>;
   AI?: unknown;
 };
@@ -85,7 +86,23 @@ api.post("/api/personal-computers/:owner/integrations/gitlab/connect", async (c)
   if (!gitlab) return jsonError(c, 503, "gitlab_oauth_unavailable", "GitLab OAuth application is not configured");
   const result = await c.env.OAUTH_PROXY.startAuth(owner, { appId: gitlab.id });
   if (!result.ok) return jsonError(c, result.error?.tag === "UnknownApp" ? 404 : 400, "oauth_connect_failed", result.error?.message ?? "Unable to start GitLab authorization");
+  if (c.env.OAUTH_FLOW_STORE) await c.env.OAUTH_FLOW_STORE.put(result.data.state, owner, 600);
   return c.json({ ok: true, applicationId: gitlab.id, ...result.data });
+});
+
+// Public OAuth callback target reached by the user's GitLab browser ceremony.
+// It resolves owner identity exclusively from one-time state created during an
+// internally authenticated connect call; owner is never accepted from query input.
+api.get("/api/personal-computers/oauth/gitlab/callback", async (c) => {
+  if (!c.env.OAUTH_PROXY || !c.env.OAUTH_FLOW_STORE) return c.text("OAuth callback is not configured.", 503);
+  const code = c.req.query("code");
+  const state = c.req.query("state");
+  if (!code || !state) return c.text("Missing OAuth callback parameters.", 400);
+  const owner = await c.env.OAUTH_FLOW_STORE.consume(state);
+  if (!owner) return c.text("OAuth callback state expired or invalid.", 400);
+  const result = await c.env.OAUTH_PROXY.completeAuth(owner, { code, state });
+  if (!result.ok) return c.text("GitLab authorization failed. Close this window and retry.", 502);
+  return c.html("<!doctype html><title>GitLab connected</title><p>GitLab connected to Cloudbox. You can close this window.</p>");
 });
 
 api.post("/api/personal-computers/:owner/integrations/gitlab/complete", async (c) => {

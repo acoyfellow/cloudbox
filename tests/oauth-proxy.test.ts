@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { api } from "../src/http.ts";
-import { findGitLabApplication } from "../src/oauth-proxy.ts";
+import { findGitLabApplication, MemoryOAuthFlowStore } from "../src/oauth-proxy.ts";
 
 const headers = { "content-type": "application/json", "x-cloudbox-internal-token": "i", "x-cloudbox-owner": "alice" };
 const gitlab = { id: "gitlab-app", hostname: "gitlab-access.cfdata.org", hostAliases: ["gitlab.cfdata.org"] };
@@ -43,6 +43,18 @@ describe("internal GitLab connection routes", () => {
     }), env);
     expect(await complete.json()).toEqual({ ok: true, connected: true });
     expect(OAUTH_PROXY.completeAuth).toHaveBeenCalledWith("alice", { code: "code", state: "state" });
+  });
+
+  it("completes a browser callback using one-time stored owner state", async () => {
+    const OAUTH_PROXY = proxy();
+    const OAUTH_FLOW_STORE = new MemoryOAuthFlowStore();
+    const env = { CLOUDBOX_INTERNAL_TOKEN: "i", OAUTH_PROXY, OAUTH_FLOW_STORE };
+    await api.fetch(new Request("https://cloudbox.test/api/personal-computers/alice/integrations/gitlab/connect", { method: "POST", headers }), env);
+    const callback = await api.fetch(new Request("https://cloudbox.test/api/personal-computers/oauth/gitlab/callback?code=c&state=state"), env);
+    expect(callback.status).toBe(200);
+    expect(OAUTH_PROXY.completeAuth).toHaveBeenCalledWith("alice", { code: "c", state: "state" });
+    const replay = await api.fetch(new Request("https://cloudbox.test/api/personal-computers/oauth/gitlab/callback?code=c&state=state"), env);
+    expect(replay.status).toBe(400);
   });
 
   it("disconnects only the configured GitLab application", async () => {
