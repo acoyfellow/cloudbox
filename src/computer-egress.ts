@@ -1,3 +1,4 @@
+import { D1ComputerGrantStore } from "./computer-grants.ts";
 import { classifyGitLabSmartHttp, normalizeGitLabSmartHttpRequest, type RepoGrantKind } from "./gitlab-egress.ts";
 
 type OutboundHandlerContext<Params> = { params?: Params };
@@ -15,7 +16,9 @@ export type ComputerEgressEnv = {
     oauthFetch(userId: string, appId: string, request: Request): Promise<Response>;
   };
   GITLAB_OAUTH_APP_ID?: string;
-  // Future grant authority backed by owner/computer/repo state.
+  DB?: D1Database;
+  // Injection hook retained for tests or alternate grant backends. Production
+  // defaults to the D1 computer-scoped store when DB is bound.
   authorizeComputerRepo?: (ownerId: string, computerId: string, kind: RepoGrantKind, repoKey: string) => Promise<boolean>;
 };
 
@@ -39,7 +42,9 @@ export const computerEgressHandler: OutboundHandler<ComputerEgressEnv, ComputerE
   if (!params?.ownerId || !params.computerId) return new Response("GitLab transport denied: missing computer identity", { status: 403 });
   const allowed = env.authorizeComputerRepo
     ? await env.authorizeComputerRepo(params.ownerId, params.computerId, decision.grantKind, decision.repoKey)
-    : false;
+    : env.DB
+      ? await new D1ComputerGrantStore(env.DB).has(params.ownerId, params.computerId, decision.grantKind, decision.repoKey)
+      : false;
   if (!allowed) return new Response(`GitLab transport grant required: ${decision.grantKind}:${decision.repoKey}`, { status: 403 });
   if (!env.OAUTH_PROXY || !env.GITLAB_OAUTH_APP_ID) return new Response("GitLab OAuth broker unavailable", { status: 503 });
   return env.OAUTH_PROXY.oauthFetch(params.ownerId, env.GITLAB_OAUTH_APP_ID, normalizeGitLabSmartHttpRequest(request));

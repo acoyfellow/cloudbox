@@ -16,6 +16,9 @@
   },
   "vars": {
     "CLOUDBOX_MODEL": "@cf/meta/llama-3.1-8b-instruct"
+    // GITLAB_OAUTH_APP_ID is set only when a Cloudbox-owned OAUTH_PROXY
+    // service binding is configured. Private Git transport remains disabled
+    // until narrow HTTPS interception is reviewed and enabled.
   },
   "d1_databases": [
     {

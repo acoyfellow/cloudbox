@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { computerEgressHandler } from "../src/computer-egress.ts";
+import { MemoryComputerGrantStore } from "../src/computer-grants.ts";
 import type { RepoGrantKind } from "../src/gitlab-egress.ts";
 
 const request = (path = "/group/project.git/info/refs?service=git-upload-pack") => new Request(`https://gitlab.cfdata.org${path}`);
@@ -17,6 +18,19 @@ describe("computer GitLab egress boundary", () => {
       authorizeComputerRepo: async () => true,
     }, context);
     expect(response.status).toBe(503);
+  });
+
+  it("can use a durable-store-shaped grant authority before broker forwarding", async () => {
+    const grants = new MemoryComputerGrantStore();
+    await grants.grant("alice", "personal", "git_repo_read", "gitlab:gitlab.cfdata.org:group/project");
+    const oauthFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    const response = await computerEgressHandler(request(), {
+      GITLAB_OAUTH_APP_ID: "gitlab-app",
+      authorizeComputerRepo: (owner, computer, kind, repoKey) => grants.has(owner, computer, kind, repoKey),
+      OAUTH_PROXY: { oauthFetch },
+    }, context);
+    expect(response.status).toBe(200);
+    expect(oauthFetch).toHaveBeenCalledOnce();
   });
 
   it("forwards only through the broker after authorization", async () => {

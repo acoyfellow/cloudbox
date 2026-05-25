@@ -112,6 +112,9 @@ export const WORKER = await Worker("cloudbox-worker", {
     CLOUDBOX_RUNNER,
     CLOUDBOX_DESKTOP_RUNNER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
+    ...(process.env.GITLAB_OAUTH_APP_ID
+      ? { GITLAB_OAUTH_APP_ID: process.env.GITLAB_OAUTH_APP_ID }
+      : {}),
     ...(process.env.CLOUDBOX_API_TOKEN
       ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }
       : {}),
