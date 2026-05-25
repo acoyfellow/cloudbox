@@ -12,7 +12,8 @@ import { handle } from "@astrojs/cloudflare/handler";
 import { ComputerDO } from "../../src/computer-do.ts";
 import { api } from "../../src/http.ts";
 import { CloudboxDesktopRunner, CloudboxRunner } from "../../src/runner-do.ts";
-export { Sandbox } from "@cloudflare/sandbox";
+import { CloudboxSandbox } from "../../src/cloudbox-sandbox.ts";
+export { CloudboxSandbox } from "../../src/cloudbox-sandbox.ts";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -51,5 +52,6 @@ export function createExports(manifest: ConstructorParameters<typeof App>[0]) {
     ComputerDO,
     CloudboxRunner,
     CloudboxDesktopRunner,
+    CloudboxSandbox,
   };
 }

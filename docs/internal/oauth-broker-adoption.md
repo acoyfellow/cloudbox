@@ -69,6 +69,18 @@ Cloudbox owns:
 - Sandbox egress handler and audit records;
 - ArtifactFS/Git operation initiation.
 
+## Host-only HTTPS interception dependency
+
+Direct inspection found that Seal's `interceptHttpsByHost = true` behavior is not presently a stock Cloudbox dependency capability: Seal carries `cto-agent-research/patches/@cloudflare__containers@0.3.3.patch`, which adds host-only HTTPS interception and forwards `waitUntil` in outbound handler context. Stock `@cloudflare/containers@0.3.4`, pulled through `@cloudflare/sandbox@0.10.1`, exposes `interceptHttps` and host mappings but not that host-only HTTPS switch in its public type/runtime surface.
+
+Cloudbox must decide one of the following before wiring live GitLab transport:
+
+1. adopt an upstream release that includes equivalent host-only HTTPS interception;
+2. intentionally carry/review the minimal Seal patch; or
+3. prove another equally narrow transport route.
+
+It must **not** casually enable global HTTPS MITM for a general personal computer just to make GitLab work.
+
 ## Safe incremental implementation
 
 The initial egress code in Cloudbox must remain fail-closed until all of these exist:

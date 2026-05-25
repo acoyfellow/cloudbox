@@ -1,0 +1,19 @@
+import { Sandbox } from "@cloudflare/sandbox";
+import { computerEgressHandler, type ComputerEgressEnv, type ComputerEgressParams } from "./computer-egress.ts";
+
+/** Durable Computer runtime class loaded by the Cloudflare Worker bundle.
+ *
+ * It is isolated from the Node/Vitest-imported API module because the upstream
+ * Containers runtime is bundler/Workers-oriented and is not directly Node ESM
+ * executable. GitLab egress is registered fail-closed; actual HTTPS interception
+ * remains disabled until host-only interception is available and reviewed. */
+export class CloudboxSandbox extends Sandbox<ComputerEgressEnv> {
+  async configureGitLabTransport(params: ComputerEgressParams): Promise<void> {
+    await this.setOutboundByHosts<ComputerEgressParams>({
+      "gitlab.cfdata.org": { method: "gitlab", params },
+      "gitlab-access.cfdata.org": { method: "gitlab", params },
+    });
+  }
+}
+
+CloudboxSandbox.outboundHandlers = { gitlab: computerEgressHandler as never };

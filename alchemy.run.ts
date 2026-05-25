@@ -50,7 +50,7 @@ const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
 // are proven.
 const CLOUDBOX_SANDBOX = await Container("cloudbox-computer", {
   name: isProd ? "cloudbox-computer" : `${app.stage}-cloudbox-computer`,
-  className: "Sandbox",
+  className: "CloudboxSandbox",
   build: {
     context: ".",
     dockerfile: "computer/Dockerfile",
