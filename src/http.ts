@@ -7,6 +7,7 @@ import { handleLocalAction, materializeLocal } from "./local-demo.ts";
 import { assertComputerPath, prepareOwnerComputer, type SandboxComputerBindings } from "./sandbox-computer.ts";
 import { buildGitLabRepoKey, type RepoGrantKind } from "./gitlab-egress.ts";
 import { D1ComputerGrantStore, type ComputerGrantStore } from "./computer-grants.ts";
+import { findGitLabApplication, type OAuthProxyBinding } from "./oauth-proxy.ts";
 
 export type CloudboxBindings = {
   CLOUDBOX_COMPUTER?: DurableObjectNamespace;
@@ -18,6 +19,7 @@ export type CloudboxBindings = {
   CLOUDBOX_API_TOKEN?: string;
   CLOUDBOX_INTERNAL_TOKEN?: string;
   computerGrants?: ComputerGrantStore;
+  OAUTH_PROXY?: OAuthProxyBinding;
   AI?: unknown;
 };
 
@@ -58,6 +60,55 @@ function gitLabRepoKeyFromRemote(remote: string): string | null {
     return null;
   }
 }
+
+api.get("/api/personal-computers/:owner/integrations/gitlab", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  if (!c.env.OAUTH_PROXY) return jsonError(c, 503, "oauth_proxy_unavailable", "GitLab OAuth broker is unavailable");
+  const applications = await c.env.OAUTH_PROXY.listAvailableApplications();
+  const gitlab = findGitLabApplication(applications);
+  if (!gitlab) return jsonError(c, 503, "gitlab_oauth_unavailable", "GitLab OAuth application is not configured");
+  const result = await c.env.OAUTH_PROXY.listApplications(owner);
+  if (!result.ok) return jsonError(c, 502, "oauth_proxy_failed", result.error?.message ?? "Unable to list OAuth connections");
+  return c.json({ ok: true, application: gitlab, connections: result.data });
+});
+
+api.post("/api/personal-computers/:owner/integrations/gitlab/connect", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  if (!c.env.OAUTH_PROXY) return jsonError(c, 503, "oauth_proxy_unavailable", "GitLab OAuth broker is unavailable");
+  const gitlab = findGitLabApplication(await c.env.OAUTH_PROXY.listAvailableApplications());
+  if (!gitlab) return jsonError(c, 503, "gitlab_oauth_unavailable", "GitLab OAuth application is not configured");
+  const result = await c.env.OAUTH_PROXY.startAuth(owner, { appId: gitlab.id });
+  if (!result.ok) return jsonError(c, result.error?.tag === "UnknownApp" ? 404 : 400, "oauth_connect_failed", result.error?.message ?? "Unable to start GitLab authorization");
+  return c.json({ ok: true, applicationId: gitlab.id, ...result.data });
+});
+
+api.post("/api/personal-computers/:owner/integrations/gitlab/complete", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  if (!c.env.OAUTH_PROXY) return jsonError(c, 503, "oauth_proxy_unavailable", "GitLab OAuth broker is unavailable");
+  const body = await c.req.json().catch(() => null) as { code?: string; state?: string } | null;
+  if (!body?.code || !body.state) return jsonError(c, 400, "bad_oauth_callback", "OAuth code and state are required");
+  const result = await c.env.OAUTH_PROXY.completeAuth(owner, { code: body.code, state: body.state });
+  if (!result.ok) return jsonError(c, 502, "oauth_complete_failed", result.error?.message ?? "Unable to complete GitLab authorization");
+  return c.json({ ok: true, connected: true });
+});
+
+api.delete("/api/personal-computers/:owner/integrations/gitlab", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  if (!c.env.OAUTH_PROXY) return jsonError(c, 503, "oauth_proxy_unavailable", "GitLab OAuth broker is unavailable");
+  const gitlab = findGitLabApplication(await c.env.OAUTH_PROXY.listAvailableApplications());
+  if (!gitlab) return jsonError(c, 503, "gitlab_oauth_unavailable", "GitLab OAuth application is not configured");
+  const result = await c.env.OAUTH_PROXY.deleteApplication(owner, gitlab.id);
+  if (!result.ok) return jsonError(c, result.error?.tag === "NotFound" ? 404 : 502, "oauth_disconnect_failed", result.error?.message ?? "Unable to disconnect GitLab authorization");
+  return c.json({ ok: true, disconnected: true });
+});
 
 api.post("/api/personal-computers/:owner/repo-grants", async (c) => {
   const owner = c.req.param("owner");

@@ -81,6 +81,19 @@ Cloudbox must decide one of the following before wiring live GitLab transport:
 
 It must **not** casually enable global HTTPS MITM for a general personal computer just to make GitLab work.
 
+## Internal connection-route scaffold
+
+Cloudbox now has a bounded route shape for a future Cloudbox-owned broker binding:
+
+```txt
+GET    /api/personal-computers/:owner/integrations/gitlab
+POST   /api/personal-computers/:owner/integrations/gitlab/connect
+POST   /api/personal-computers/:owner/integrations/gitlab/complete
+DELETE /api/personal-computers/:owner/integrations/gitlab
+```
+
+These routes remain internal-delegation-only and operate exclusively through an injected `OAUTH_PROXY` RPC contract. They return connection state/authorization URL only, never access or refresh tokens. No live transport is enabled by these endpoints.
+
 ## Safe incremental implementation
 
 The initial egress code in Cloudbox must remain fail-closed until all of these exist:
