@@ -12,6 +12,7 @@ import { handle } from "@astrojs/cloudflare/handler";
 import { ComputerDO } from "../../src/computer-do.ts";
 import { api } from "../../src/http.ts";
 import { CloudboxDesktopRunner, CloudboxRunner } from "../../src/runner-do.ts";
+export { Sandbox } from "@cloudflare/sandbox";
 
 export default {
   async fetch(request: Request): Promise<Response> {

@@ -4,20 +4,85 @@ import { deleteLiveInContainer, devInContainer, execInContainer, previewInContai
 import { materialize } from "./materialize.ts";
 import type { ComputerSpec } from "./spec.ts";
 import { handleLocalAction, materializeLocal } from "./local-demo.ts";
+import { assertComputerPath, prepareOwnerComputer, type SandboxComputerBindings } from "./sandbox-computer.ts";
 
 export type CloudboxBindings = {
   CLOUDBOX_COMPUTER?: DurableObjectNamespace;
   CLOUDBOX_RUNNER?: unknown;
   CLOUDBOX_DESKTOP_RUNNER?: unknown;
+  CLOUDBOX_SANDBOX?: SandboxComputerBindings["CLOUDBOX_SANDBOX"];
   ARTIFACTS?: R2Bucket;
   DB?: D1Database;
   CLOUDBOX_API_TOKEN?: string;
+  CLOUDBOX_INTERNAL_TOKEN?: string;
   AI?: unknown;
 };
 
 export const api = new Hono<{ Bindings: CloudboxBindings }>();
 
 api.get("/api/health", (c) => c.json({ ok: true, name: "cloudbox" }));
+
+// Sandbox-backed durable Computer vertical slice. Owner identity is supplied
+// only by trusted internal callers until verified end-user delegation exists;
+// these routes intentionally reject ordinary public API traffic.
+function internalComputerOwner(request: Request, expectedOwner: string, env: CloudboxBindings): Response | null {
+  const internalToken = env.CLOUDBOX_INTERNAL_TOKEN;
+  const gotToken = request.headers.get("x-cloudbox-internal-token");
+  const owner = request.headers.get("x-cloudbox-owner");
+  if (!internalToken || gotToken !== internalToken || !owner || owner.toLowerCase() !== expectedOwner.toLowerCase()) {
+    return jsonErrorResponse(403, "computer_internal_only", "durable computer slice requires trusted owner delegation");
+  }
+  return null;
+}
+
+api.post("/api/personal-computers/:owner/exec", async (c) => {
+  const trusted = internalComputerOwner(c.req.raw, c.req.param("owner"), c.env);
+  if (trusted) return trusted;
+  if (!c.env.CLOUDBOX_SANDBOX) return jsonError(c, 503, "sandbox_unavailable", "CLOUDBOX_SANDBOX binding is required for durable computers");
+  const body = await c.req.json().catch(() => null) as { command?: string; cwd?: string; timeoutMs?: number } | null;
+  if (!body?.command || typeof body.command !== "string" || body.command.length > 2_000) return jsonError(c, 400, "bad_exec", "command is required and must be <= 2000 chars");
+  const cwd = body.cwd ?? "/home/user";
+  try {
+    if (cwd !== "/home/user") assertComputerPath(cwd);
+    const sandbox = await prepareOwnerComputer(c.env, { id: c.req.param("owner") });
+    const result = await sandbox.exec(body.command, { cwd, timeout: body.timeoutMs ?? 30_000 });
+    return c.json({ ok: result.success, cwd, stdout: result.stdout ?? "", stderr: result.stderr ?? "", exitCode: result.exitCode ?? (result.success ? 0 : 1) });
+  } catch (error) {
+    return jsonError(c, 400, "computer_exec_failed", error instanceof Error ? error.message : String(error));
+  }
+});
+
+api.get("/api/personal-computers/:owner/read", async (c) => {
+  const trusted = internalComputerOwner(c.req.raw, c.req.param("owner"), c.env);
+  if (trusted) return trusted;
+  if (!c.env.CLOUDBOX_SANDBOX) return jsonError(c, 503, "sandbox_unavailable", "CLOUDBOX_SANDBOX binding is required for durable computers");
+  const path = c.req.query("path") ?? "";
+  try {
+    assertComputerPath(path);
+    const sandbox = await prepareOwnerComputer(c.env, { id: c.req.param("owner") });
+    const file = await sandbox.readFile(path) as unknown as { content?: string | Uint8Array };
+    const content = typeof file.content === "string" ? file.content : file.content instanceof Uint8Array ? new TextDecoder().decode(file.content) : "";
+    return c.json({ ok: true, path, content });
+  } catch (error) {
+    return jsonError(c, 400, "computer_read_failed", error instanceof Error ? error.message : String(error));
+  }
+});
+
+api.post("/api/personal-computers/:owner/write", async (c) => {
+  const trusted = internalComputerOwner(c.req.raw, c.req.param("owner"), c.env);
+  if (trusted) return trusted;
+  if (!c.env.CLOUDBOX_SANDBOX) return jsonError(c, 503, "sandbox_unavailable", "CLOUDBOX_SANDBOX binding is required for durable computers");
+  const body = await c.req.json().catch(() => null) as { path?: string; content?: string } | null;
+  if (typeof body?.content !== "string" || body.content.length > 200_000) return jsonError(c, 400, "bad_write", "content must be a string <= 200000 chars");
+  try {
+    assertComputerPath(body.path ?? "");
+    const sandbox = await prepareOwnerComputer(c.env, { id: c.req.param("owner") });
+    await sandbox.writeFile(body.path!, body.content);
+    return c.json({ ok: true, path: body.path, bytes: body.content.length });
+  } catch (error) {
+    return jsonError(c, 400, "computer_write_failed", error instanceof Error ? error.message : String(error));
+  }
+});
 
 api.post("/api/brief", async (c) => {
   const body = await c.req.json().catch(() => null) as { brief?: string } | null;

@@ -47,6 +47,10 @@
       {
         "name": "CLOUDBOX_DESKTOP_RUNNER",
         "class_name": "CloudboxDesktopRunner"
+      },
+      {
+        "name": "CLOUDBOX_SANDBOX",
+        "class_name": "Sandbox"
       }
     ]
   },
@@ -55,6 +59,12 @@
       "tag": "v1",
       "new_sqlite_classes": [
         "ComputerDO"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "Sandbox"
       ]
     }
   ],
@@ -74,6 +84,14 @@
       "image_build_context": "./runner",
       "instance_type": "standard-1",
       "max_instances": 1
+    },
+    {
+      "name": "cloudbox-computer",
+      "class_name": "Sandbox",
+      "image": "./computer/Dockerfile",
+      "image_build_context": ".",
+      "instance_type": "standard-1",
+      "max_instances": 5
     }
   ]
 }

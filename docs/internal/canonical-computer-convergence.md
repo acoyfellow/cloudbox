@@ -164,6 +164,8 @@ rather than importing Seal's product-specific Workspace UI/model.
 
 ### Phase 1: define a minimal Cloudbox Computer contract
 
+A first Sandbox-backed vertical slice has now been started under `/api/personal-computers/:owner/*` with `exec`, `read`, and `write` only. The `:owner` argument is deliberately not a production identity contract: these routes are bounded internal scaffolding requiring an internal token plus matching owner assertion, and must not be exposed as an end-user API until verified identity/delegation is implemented.
+
 Specify owner-scoped computer operations without implementing broad UI:
 
 ```txt

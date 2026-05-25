@@ -45,6 +45,22 @@ const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
   sqlite: true,
 });
 
+// Sandbox-backed durable Computer runtime. Kept separate from the existing
+// proof-run runners while the owner identity and private Git egress contract
+// are proven.
+const CLOUDBOX_SANDBOX = await Container("cloudbox-computer", {
+  name: isProd ? "cloudbox-computer" : `${app.stage}-cloudbox-computer`,
+  className: "Sandbox",
+  build: {
+    context: ".",
+    dockerfile: "computer/Dockerfile",
+  },
+  instanceType: process.env.CLOUDBOX_COMPUTER_INSTANCE_TYPE || (isProd ? "standard" : "lite"),
+  maxInstances: Number(process.env.CLOUDBOX_COMPUTER_MAX_INSTANCES || 5),
+  adopt: true,
+  dev: { remote: true },
+});
+
 const runnerResourceId = process.env.CLOUDBOX_RUNNER_RESOURCE_ID || "cloudbox-runner";
 const runnerName = process.env.CLOUDBOX_RUNNER_NAME || (isProd ? "cloudbox-runner-v2" : `${app.stage}-cloudbox-runner`);
 const runnerInstanceType = process.env.CLOUDBOX_RUNNER_INSTANCE_TYPE || (isProd ? "standard" : "lite");
@@ -92,11 +108,15 @@ export const WORKER = await Worker("cloudbox-worker", {
     DB,
     ARTIFACTS,
     CLOUDBOX_COMPUTER,
+    CLOUDBOX_SANDBOX,
     CLOUDBOX_RUNNER,
     CLOUDBOX_DESKTOP_RUNNER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
     ...(process.env.CLOUDBOX_API_TOKEN
       ? { CLOUDBOX_API_TOKEN: alchemy.secret(process.env.CLOUDBOX_API_TOKEN) }
+      : {}),
+    ...(process.env.CLOUDBOX_INTERNAL_TOKEN
+      ? { CLOUDBOX_INTERNAL_TOKEN: alchemy.secret(process.env.CLOUDBOX_INTERNAL_TOKEN) }
       : {}),
     ...(process.env.CLOUDBOX_GITLAB_TOKEN
       ? { CLOUDBOX_GITLAB_TOKEN: alchemy.secret(process.env.CLOUDBOX_GITLAB_TOKEN) }

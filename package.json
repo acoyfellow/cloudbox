@@ -46,6 +46,7 @@
     "web"
   ],
   "dependencies": {
+    "@cloudflare/sandbox": "0.10.1",
     "alchemy": "^0.93.7",
     "effect": "^4.0.0-beta.58",
     "hono": "^4.12.18"
