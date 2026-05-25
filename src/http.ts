@@ -19,6 +19,7 @@ export type CloudboxBindings = {
   DB?: D1Database;
   CLOUDBOX_API_TOKEN?: string;
   CLOUDBOX_INTERNAL_TOKEN?: string;
+  CLOUDBOX_PUBLISH_APPROVAL_TOKEN?: string;
   computerGrants?: ComputerGrantStore;
   OAUTH_PROXY?: OAuthProxyBinding;
   GITLAB_OAUTH_APP_ID?: string;
@@ -148,8 +149,26 @@ api.post("/api/personal-computers/:owner/repo-grants", async (c) => {
   const body = await c.req.json().catch(() => null) as { remote?: string; kind?: RepoGrantKind; ttlMs?: number } | null;
   const repoKey = gitLabRepoKeyFromRemote(body?.remote ?? "");
   if (!repoKey || (body?.kind !== "git_repo_read" && body?.kind !== "git_repo_write")) return jsonError(c, 400, "bad_grant", "valid GitLab remote and git_repo_read/git_repo_write kind are required");
+  if (body.kind === "git_repo_write") return jsonError(c, 403, "publication_approval_required", "write grants require the publication approval endpoint");
   const grant = await store.grant(owner, personalComputerId(owner), body.kind, repoKey, body.ttlMs);
   return c.json({ ok: true, grant });
+});
+
+api.post("/api/personal-computers/:owner/publication-approvals", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  const approvalToken = c.req.header("x-cloudbox-publish-approval-token");
+  if (!c.env.CLOUDBOX_PUBLISH_APPROVAL_TOKEN || approvalToken !== c.env.CLOUDBOX_PUBLISH_APPROVAL_TOKEN) {
+    return jsonError(c, 403, "publication_approval_required", "explicit publication approval is required");
+  }
+  const store = computerGrantStore(c.env);
+  if (!store) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
+  const body = await c.req.json().catch(() => null) as { remote?: string; ttlMs?: number; approved?: boolean } | null;
+  const repoKey = gitLabRepoKeyFromRemote(body?.remote ?? "");
+  if (!repoKey || body?.approved !== true) return jsonError(c, 400, "bad_approval", "valid GitLab remote and approved=true are required");
+  const grant = await store.grant(owner, personalComputerId(owner), "git_repo_write", repoKey, body.ttlMs ?? 15 * 60 * 1000);
+  return c.json({ ok: true, approval: grant });
 });
 
 api.get("/api/personal-computers/:owner/repo-grants", async (c) => {

@@ -68,6 +68,24 @@ describe("computer repository grants", () => {
     expect((await (await api.fetch(new Request("https://cloudbox.test/api/personal-computers/alice/repo-grants", { headers }), env)).json() as any).grants).toHaveLength(1);
   });
 
+  it("requires a distinct approval ceremony before creating write authority", async () => {
+    const computerGrants = new MemoryComputerGrantStore();
+    const env = { CLOUDBOX_INTERNAL_TOKEN: "i", CLOUDBOX_PUBLISH_APPROVAL_TOKEN: "approve", computerGrants };
+    const ordinary = await api.fetch(new Request("https://cloudbox.test/api/personal-computers/alice/repo-grants", {
+      method: "POST", headers, body: JSON.stringify({ remote, kind: "git_repo_write" }),
+    }), env);
+    expect(ordinary.status).toBe(403);
+    const unapproved = await api.fetch(new Request("https://cloudbox.test/api/personal-computers/alice/publication-approvals", {
+      method: "POST", headers, body: JSON.stringify({ remote, approved: true }),
+    }), env);
+    expect(unapproved.status).toBe(403);
+    const approved = await api.fetch(new Request("https://cloudbox.test/api/personal-computers/alice/publication-approvals", {
+      method: "POST", headers: { ...headers, "x-cloudbox-publish-approval-token": "approve" }, body: JSON.stringify({ remote, approved: true }),
+    }), env);
+    expect(approved.status).toBe(200);
+    expect(await computerGrants.has("alice", "personal:alice", "git_repo_write", "gitlab:gitlab.cfdata.org:cloudflare/team/project")).toBe(true);
+  });
+
   it("exposes only internal bounded grant CRUD for exact GitLab repos", async () => {
     const computerGrants = new MemoryComputerGrantStore();
     const env = { CLOUDBOX_INTERNAL_TOKEN: "i", computerGrants };

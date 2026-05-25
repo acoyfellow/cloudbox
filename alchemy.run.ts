@@ -159,6 +159,9 @@ export const WORKER = await Worker("cloudbox-worker", {
     ...(process.env.CLOUDBOX_INTERNAL_TOKEN
       ? { CLOUDBOX_INTERNAL_TOKEN: alchemy.secret(process.env.CLOUDBOX_INTERNAL_TOKEN) }
       : {}),
+    ...(process.env.CLOUDBOX_PUBLISH_APPROVAL_TOKEN
+      ? { CLOUDBOX_PUBLISH_APPROVAL_TOKEN: alchemy.secret(process.env.CLOUDBOX_PUBLISH_APPROVAL_TOKEN) }
+      : {}),
     ...(process.env.CLOUDBOX_GITLAB_TOKEN
       ? { CLOUDBOX_GITLAB_TOKEN: alchemy.secret(process.env.CLOUDBOX_GITLAB_TOKEN) }
       : {}),
