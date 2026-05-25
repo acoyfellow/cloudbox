@@ -6,7 +6,7 @@ import type { ComputerSpec } from "./spec.ts";
 import { handleLocalAction, materializeLocal } from "./local-demo.ts";
 import { assertComputerPath, prepareOwnerComputer, type SandboxComputerBindings } from "./sandbox-computer.ts";
 import { buildGitLabRepoKey, type RepoGrantKind } from "./gitlab-egress.ts";
-import type { ComputerGrantStore } from "./computer-grants.ts";
+import { D1ComputerGrantStore, type ComputerGrantStore } from "./computer-grants.ts";
 
 export type CloudboxBindings = {
   CLOUDBOX_COMPUTER?: DurableObjectNamespace;
@@ -42,6 +42,11 @@ function personalComputerId(owner: string): string {
   return `personal:${owner.trim().toLowerCase()}`;
 }
 
+function computerGrantStore(env: CloudboxBindings): ComputerGrantStore | null {
+  if (env.computerGrants) return env.computerGrants;
+  return env.DB ? new D1ComputerGrantStore(env.DB) : null;
+}
+
 function gitLabRepoKeyFromRemote(remote: string): string | null {
   try {
     const url = new URL(remote);
@@ -58,11 +63,12 @@ api.post("/api/personal-computers/:owner/repo-grants", async (c) => {
   const owner = c.req.param("owner");
   const trusted = internalComputerOwner(c.req.raw, owner, c.env);
   if (trusted) return trusted;
-  if (!c.env.computerGrants) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
+  const store = computerGrantStore(c.env);
+  if (!store) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
   const body = await c.req.json().catch(() => null) as { remote?: string; kind?: RepoGrantKind; ttlMs?: number } | null;
   const repoKey = gitLabRepoKeyFromRemote(body?.remote ?? "");
   if (!repoKey || (body?.kind !== "git_repo_read" && body?.kind !== "git_repo_write")) return jsonError(c, 400, "bad_grant", "valid GitLab remote and git_repo_read/git_repo_write kind are required");
-  const grant = await c.env.computerGrants.grant(owner, personalComputerId(owner), body.kind, repoKey, body.ttlMs);
+  const grant = await store.grant(owner, personalComputerId(owner), body.kind, repoKey, body.ttlMs);
   return c.json({ ok: true, grant });
 });
 
@@ -70,19 +76,21 @@ api.get("/api/personal-computers/:owner/repo-grants", async (c) => {
   const owner = c.req.param("owner");
   const trusted = internalComputerOwner(c.req.raw, owner, c.env);
   if (trusted) return trusted;
-  if (!c.env.computerGrants) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
-  return c.json({ ok: true, grants: await c.env.computerGrants.list(owner, personalComputerId(owner)) });
+  const store = computerGrantStore(c.env);
+  if (!store) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
+  return c.json({ ok: true, grants: await store.list(owner, personalComputerId(owner)) });
 });
 
 api.delete("/api/personal-computers/:owner/repo-grants", async (c) => {
   const owner = c.req.param("owner");
   const trusted = internalComputerOwner(c.req.raw, owner, c.env);
   if (trusted) return trusted;
-  if (!c.env.computerGrants) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
+  const store = computerGrantStore(c.env);
+  if (!store) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
   const body = await c.req.json().catch(() => null) as { remote?: string } | null;
   const repoKey = gitLabRepoKeyFromRemote(body?.remote ?? "");
   if (!repoKey) return jsonError(c, 400, "bad_grant", "valid GitLab remote is required");
-  await c.env.computerGrants.revoke(owner, personalComputerId(owner), repoKey);
+  await store.revoke(owner, personalComputerId(owner), repoKey);
   return c.json({ ok: true, revoked: repoKey });
 });
 

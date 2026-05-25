@@ -33,3 +33,13 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT NOT NULL,
   FOREIGN KEY (run_id) REFERENCES runs(id)
 );
+
+CREATE TABLE IF NOT EXISTS computer_repo_grants (
+  owner_id TEXT NOT NULL,
+  computer_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN ('git_repo_read', 'git_repo_write')),
+  repo_key TEXT NOT NULL,
+  granted_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  PRIMARY KEY (owner_id, computer_id, kind, repo_key)
+);
