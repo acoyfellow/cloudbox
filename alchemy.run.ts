@@ -2,6 +2,7 @@ import alchemy from "alchemy";
 import {
   D1Database,
   R2Bucket,
+  KVNamespace,
   Worker,
   Assets,
   DurableObjectNamespace,
@@ -38,6 +39,36 @@ const DB = await D1Database("cloudbox-db", {
 const ARTIFACTS = await R2Bucket("cloudbox-artifacts", {
   name: bucketName,
   adopt: true,
+});
+
+const OAUTH_TOKEN_CACHE = await KVNamespace("cloudbox-oauth-token-cache", {
+  title: isProd ? "cloudbox-oauth-token-cache" : `${app.stage}-cloudbox-oauth-token-cache`,
+  adopt: true,
+});
+
+const OAUTH_CLIENT = DurableObjectNamespace("OAUTH_CLIENT", {
+  className: "OAuthClient",
+  sqlite: true,
+});
+
+const OAUTH_PROXY_WORKER = await Worker("cloudbox-oauth-proxy", {
+  name: isProd ? "cloudbox-oauth-proxy" : `${app.stage}-cloudbox-oauth-proxy`,
+  entrypoint: "./oauth-proxy/src/index.ts",
+  adopt: true,
+  compatibilityDate: "2026-04-30",
+  compatibilityFlags: ["nodejs_compat"],
+  observability: { enabled: true },
+  url: false,
+  bindings: {
+    TOKEN_CACHE: OAUTH_TOKEN_CACHE,
+    OAUTH_CLIENT,
+    REDIRECT_BASE_URL: process.env.CLOUDBOX_BASE_URL || "https://cloudbox.coey.dev",
+    GITLAB_CFDATA_CLIENT_ID: process.env.GITLAB_CFDATA_CLIENT_ID || "",
+    ...(process.env.OAUTH_PROXY_MASTER_KEY ? { MASTER_KEY: alchemy.secret(process.env.OAUTH_PROXY_MASTER_KEY) } : {}),
+    ...(process.env.GITLAB_CFDATA_CLIENT_SECRET ? { GITLAB_CFDATA_CLIENT_SECRET: alchemy.secret(process.env.GITLAB_CFDATA_CLIENT_SECRET) } : {}),
+    ...(process.env.GITLAB_CFDATA_CF_ACCESS_CLIENT_ID ? { GITLAB_CFDATA_CF_ACCESS_CLIENT_ID: alchemy.secret(process.env.GITLAB_CFDATA_CF_ACCESS_CLIENT_ID) } : {}),
+    ...(process.env.GITLAB_CFDATA_CF_ACCESS_CLIENT_SECRET ? { GITLAB_CFDATA_CF_ACCESS_CLIENT_SECRET: alchemy.secret(process.env.GITLAB_CFDATA_CF_ACCESS_CLIENT_SECRET) } : {}),
+  },
 });
 
 const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
@@ -112,6 +143,7 @@ export const WORKER = await Worker("cloudbox-worker", {
     CLOUDBOX_RUNNER,
     CLOUDBOX_DESKTOP_RUNNER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
+    OAUTH_PROXY: OAUTH_PROXY_WORKER,
     ...(process.env.GITLAB_OAUTH_APP_ID
       ? { GITLAB_OAUTH_APP_ID: process.env.GITLAB_OAUTH_APP_ID }
       : {}),

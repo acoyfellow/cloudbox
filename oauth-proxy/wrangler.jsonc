@@ -1,0 +1,23 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "cloudbox-oauth-proxy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "vars": {
+    "REDIRECT_BASE_URL": "https://cloudbox.coey.dev"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "OAUTH_CLIENT", "class_name": "OAuthClient" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OAuthClient"] }],
+  "kv_namespaces": [
+    {
+      "binding": "TOKEN_CACHE",
+      "id": "REPLACE_WITH_CLOUDBOX_OAUTH_TOKEN_CACHE_KV_ID"
+    }
+  ]
+}

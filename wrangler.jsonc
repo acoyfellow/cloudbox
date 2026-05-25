@@ -37,6 +37,8 @@
   "ai": {
     "binding": "AI"
   },
+  // Add after deploying the Cloudbox-owned broker worker:
+  // "services": [{ "binding": "OAUTH_PROXY", "service": "cloudbox-oauth-proxy" }],
   "durable_objects": {
     "bindings": [
       {

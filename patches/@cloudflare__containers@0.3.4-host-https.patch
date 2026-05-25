@@ -1,0 +1,92 @@
+diff --git a/dist/index.js b/dist/index.js
+index d954301b6d9a1982fb87198d45fa8ab709c8547c..497bb5629a6859aaaf267366981bf12a20e28fd1 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1,3 +1,3 @@
+-export { Container, ContainerProxy, outboundParams } from './lib/container';
+-export { getRandom, loadBalance, getContainer, switchPort } from './lib/utils';
++export { Container, ContainerProxy, outboundParams } from './lib/container.js';
++export { getRandom, loadBalance, getContainer, switchPort } from './lib/utils.js';
+ //# sourceMappingURL=index.js.map
+diff --git a/dist/lib/container.d.ts b/dist/lib/container.d.ts
+index d31787ec7d27a2e35e58f04752780422d74227bd3..38a84d92f0edac0e3e65c548dcb2f419db4e3663 100644
+--- a/dist/lib/container.d.ts
++++ b/dist/lib/container.d.ts
+@@ -3,6 +3,7 @@ import type { ContainerOptions, ContainerStartOptions, ContainerStartConfigOption
+ export type OutboundHandlerContext<Params = unknown> = {
+     containerId: string;
+     className: string;
++    waitUntil: (promise: Promise<unknown>) => void;
+ } & ([Params] extends [undefined] ? {
+     params?: undefined;
+ } : undefined extends Params ? {
+@@ -65,6 +66,7 @@ export declare class Container<Env = Cloudflare.Env> extends DurableObject<Env>
+     enableInternet: ContainerStartOptions['enableInternet'];
+     labels: ContainerStartOptions['labels'];
+     interceptHttps: boolean;
++    interceptHttpsByHost: boolean;
+     allowedHosts?: string[];
+     deniedHosts?: string[];
+     pingEndpoint: string;
+diff --git a/dist/lib/container.js b/dist/lib/container.js
+index 2a522f7f051b2324f4d1cb64e26414c27ceb46fd..ba6eb3125a8367477bcd1a4e567122b9dc6b42d6 100644
+--- a/dist/lib/container.js
++++ b/dist/lib/container.js
+@@ -1,4 +1,4 @@
+-import { generateId, parseTimeExpression } from './helpers';
++import { generateId, parseTimeExpression } from './helpers.js';
+ import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
+ // ====================
+ // ====================
+@@ -190,7 +190,8 @@ export class ContainerProxy extends WorkerEntrypoint {
+         const url = new URL(request.url);
+         const hostname = normalizeHostname(url.hostname);
+         const { className, containerId, outboundByHostOverrides, outboundHandlerOverride, enableInternet, allowedHosts, deniedHosts, interceptAll, } = this.ctx.props;
+-        const baseCtx = { containerId, className };
++        const waitUntil = this.ctx.waitUntil.bind(this.ctx);
++        const baseCtx = { containerId, className, waitUntil };
+         // 1. deniedHosts: overrides everything, blocks unconditionally
+         if (deniedHosts && matchesHostList(hostname, deniedHosts)) {
+             return new Response('Origin is disallowed', { status: 520 });
+@@ -319,6 +320,7 @@ export class Container extends DurableObject {
+     // When true, outbound HTTPS traffic from the container will be intercepted.
+     // The container must trust /etc/cloudflare/certs/cloudflare-containers-ca.crt
+     interceptHttps = false;
++    interceptHttpsByHost = false;
+     // Hosts that are allowed to access the internet, even when enableInternet is false.
+     // Useful for allowing specific domains on a per-host basis.
+     allowedHosts;
+@@ -1164,26 +1166,26 @@ export class Container extends DurableObject {
+             props,
+         });
+         if (interceptAll) {
+-            // If we previously installed static per-host interceptors, refresh them
+-            // with the current fetcher so they follow the latest config too.
+             for (const host of this.getStaticOutboundByHostKeys()) {
+                 await this.container.interceptOutboundHttp(host, fetcher);
+-                if (this.interceptHttps) {
++                if (this.interceptHttps || this.interceptHttpsByHost) {
+                     await this.container.interceptOutboundHttps(host, fetcher);
+                 }
+             }
+-            // If HTTPS interception is enabled, intercept all HTTPS traffic too
+             if (this.interceptHttps) {
+                 await this.container.interceptOutboundHttps('*', fetcher);
+             }
+-            // Intercept-all: intercept all outbound HTTP traffic
++            if (this.interceptHttpsByHost && !this.interceptHttps) {
++                for (const host of Object.keys(outboundConfiguration.outboundByHostOverrides ?? {})) {
++                    await this.container.interceptOutboundHttps(`${host}:443`, fetcher);
++                }
++            }
+             await this.container.interceptAllOutboundHttp(fetcher);
+         }
+         else {
+-            // Per-host: only intercept traffic for known hosts
+             for (const host of hosts) {
+                 await this.container.interceptOutboundHttp(host, fetcher);
+-                if (this.interceptHttps) {
++                if (this.interceptHttps || this.interceptHttpsByHost) {
+                     await this.container.interceptOutboundHttps(host, fetcher);
+                 }
+             }

@@ -48,8 +48,11 @@
   "dependencies": {
     "@cloudflare/sandbox": "0.10.1",
     "alchemy": "^0.93.7",
+    "better-result": "^2.7.0",
     "effect": "^4.0.0-beta.58",
-    "hono": "^4.12.18"
+    "hono": "^4.12.18",
+    "oauth4webapi": "^3.8.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260430.1",
@@ -62,5 +65,10 @@
   "engines": {
     "bun": ">=1.3.0",
     "node": ">=22"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@cloudflare/containers@0.3.4": "patches/@cloudflare__containers@0.3.4-host-https.patch"
+    }
   }
 }
