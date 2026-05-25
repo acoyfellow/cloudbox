@@ -2,9 +2,10 @@ export const COMPUTER_HOME = "/home/user";
 
 type SandboxFile = { content?: string | Uint8Array };
 export type ComputerSandbox = {
-  exec(command: string, options?: { cwd?: string; timeout?: number; origin?: string }): Promise<{ success: boolean; stdout?: string; stderr?: string; exitCode?: number }>;
+  exec(command: string, options?: { cwd?: string; timeout?: number; origin?: string; env?: Record<string, string> }): Promise<{ success: boolean; stdout?: string; stderr?: string; exitCode?: number }>;
   readFile(path: string): Promise<SandboxFile>;
   writeFile(path: string, content: string): Promise<unknown>;
+  configureGitLabTransport?: (params: { ownerId: string; computerId: string }) => Promise<void>;
 };
 export type SandboxComputerBindings = {
   CLOUDBOX_SANDBOX?: DurableObjectNamespace;
@@ -48,4 +49,10 @@ export async function prepareOwnerComputer(env: SandboxComputerBindings, owner: 
     origin: "internal",
   });
   return sandbox;
+}
+
+export async function enableOwnerGitLabTransport(sandbox: ComputerSandbox, owner: ComputerOwner): Promise<void> {
+  if (!sandbox.configureGitLabTransport) throw new Error("computer GitLab transport is not available in this runtime");
+  const id = owner.id.trim().toLowerCase();
+  await sandbox.configureGitLabTransport({ ownerId: id, computerId: `personal:${id}` });
 }

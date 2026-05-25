@@ -8,6 +8,7 @@ import { assertComputerPath, prepareOwnerComputer, type SandboxComputerBindings 
 import { buildGitLabRepoKey, type RepoGrantKind } from "./gitlab-egress.ts";
 import { D1ComputerGrantStore, type ComputerGrantStore } from "./computer-grants.ts";
 import { findGitLabApplication, type OAuthProxyBinding } from "./oauth-proxy.ts";
+import { createMergeRequest, mountPrivateRepo, publishBranch } from "./repo-workflow.ts";
 
 export type CloudboxBindings = {
   CLOUDBOX_COMPUTER?: DurableObjectNamespace;
@@ -20,6 +21,7 @@ export type CloudboxBindings = {
   CLOUDBOX_INTERNAL_TOKEN?: string;
   computerGrants?: ComputerGrantStore;
   OAUTH_PROXY?: OAuthProxyBinding;
+  createMergeRequest?: (input: { ownerId: string; remote: string; sourceBranch: string; targetBranch: string; title: string; description?: string }) => Promise<{ url: string; iid?: number }>;
   AI?: unknown;
 };
 
@@ -143,6 +145,53 @@ api.delete("/api/personal-computers/:owner/repo-grants", async (c) => {
   if (!repoKey) return jsonError(c, 400, "bad_grant", "valid GitLab remote is required");
   await store.revoke(owner, personalComputerId(owner), repoKey);
   return c.json({ ok: true, revoked: repoKey });
+});
+
+api.post("/api/personal-computers/:owner/repos/mount", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  const grants = computerGrantStore(c.env);
+  if (!grants || !c.env.CLOUDBOX_SANDBOX) return jsonError(c, 503, "computer_unavailable", "computer runtime and grant authority are required");
+  const body = await c.req.json().catch(() => null) as { remote?: string; path?: string; branch?: string } | null;
+  try {
+    const result = await mountPrivateRepo({ ...c.env, computerGrants: grants }, { ownerId: owner, remote: body?.remote ?? "", path: body?.path ?? "", branch: body?.branch });
+    return c.json({ ok: true, result });
+  } catch (error) {
+    return jsonError(c, 409, "repo_mount_failed", error instanceof Error ? error.message : String(error));
+  }
+});
+
+api.post("/api/personal-computers/:owner/repos/publish", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  const grants = computerGrantStore(c.env);
+  if (!grants || !c.env.CLOUDBOX_SANDBOX) return jsonError(c, 503, "computer_unavailable", "computer runtime and grant authority are required");
+  const body = await c.req.json().catch(() => null) as { remote?: string; path?: string; branch?: string } | null;
+  if (!body?.branch) return jsonError(c, 400, "bad_publication", "branch is required");
+  try {
+    const result = await publishBranch({ ...c.env, computerGrants: grants }, { ownerId: owner, remote: body.remote ?? "", path: body.path ?? "", branch: body.branch });
+    return c.json({ ok: true, result });
+  } catch (error) {
+    return jsonError(c, 409, "repo_publish_failed", error instanceof Error ? error.message : String(error));
+  }
+});
+
+api.post("/api/personal-computers/:owner/repos/merge-requests", async (c) => {
+  const owner = c.req.param("owner");
+  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
+  if (trusted) return trusted;
+  const body = await c.req.json().catch(() => null) as { remote?: string; sourceBranch?: string; targetBranch?: string; title?: string; description?: string } | null;
+  if (!body?.remote || !body.sourceBranch || !body.title) return jsonError(c, 400, "bad_merge_request", "remote, sourceBranch and title are required");
+  try {
+    const grants = computerGrantStore(c.env);
+    if (!grants) return jsonError(c, 503, "grant_store_unavailable", "computer repo grant authority is unavailable");
+    const result = await createMergeRequest({ ...c.env, computerGrants: grants }, { ownerId: owner, remote: body.remote, sourceBranch: body.sourceBranch, targetBranch: body.targetBranch, title: body.title, description: body.description });
+    return c.json({ ok: true, result });
+  } catch (error) {
+    return jsonError(c, 503, "merge_request_failed", error instanceof Error ? error.message : String(error));
+  }
 });
 
 api.post("/api/personal-computers/:owner/exec", async (c) => {
