@@ -46,4 +46,14 @@ describe("complete private repo workflow contract", () => {
     expect(result.iid).toBe(1);
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ sourceBranch: "agent/change", targetBranch: "main" }));
   });
+
+  it("creates an MR through the brokered GitLab API when no external provider is injected", async () => {
+    const oauthFetch = vi.fn().mockResolvedValue(Response.json({ web_url: "https://gitlab.cfdata.org/cloudflare/team/project/-/merge_requests/2", iid: 2 }));
+    const env = { ...harness(), GITLAB_OAUTH_APP_ID: "gitlab-app", OAUTH_PROXY: { oauthFetch } } as any;
+    const result = await createMergeRequest(env, { ownerId, remote, sourceBranch: "agent/change", title: "Agent change" });
+    expect(result.iid).toBe(2);
+    const request = oauthFetch.mock.calls[0][2] as Request;
+    expect(request.url).toContain("/api/v4/projects/cloudflare%2Fteam%2Fproject/merge_requests");
+    expect(request.method).toBe("POST");
+  });
 });

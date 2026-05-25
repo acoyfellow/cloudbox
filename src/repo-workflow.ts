@@ -1,9 +1,12 @@
 import { buildGitLabRepoKey } from "./gitlab-egress.ts";
 import { enableOwnerGitLabTransport, assertComputerPath, prepareOwnerComputer, type SandboxComputerBindings } from "./sandbox-computer.ts";
 import type { ComputerGrantStore } from "./computer-grants.ts";
+import type { OAuthProxyBinding } from "./oauth-proxy.ts";
 
 export type RepoWorkflowEnv = SandboxComputerBindings & {
   computerGrants: ComputerGrantStore;
+  OAUTH_PROXY?: OAuthProxyBinding;
+  GITLAB_OAUTH_APP_ID?: string;
   createMergeRequest?: (input: { ownerId: string; remote: string; sourceBranch: string; targetBranch: string; title: string; description?: string }) => Promise<{ url: string; iid?: number }>;
 };
 
@@ -48,6 +51,19 @@ export async function publishBranch(env: RepoWorkflowEnv, input: { ownerId: stri
 }
 
 export async function createMergeRequest(env: RepoWorkflowEnv, input: { ownerId: string; remote: string; sourceBranch: string; targetBranch?: string; title: string; description?: string }) {
-  if (!env.createMergeRequest) throw new Error("merge request provider is not configured");
-  return env.createMergeRequest({ ...input, targetBranch: input.targetBranch ?? "main" });
+  const targetBranch = input.targetBranch ?? "main";
+  if (env.createMergeRequest) return env.createMergeRequest({ ...input, targetBranch });
+  if (!env.OAUTH_PROXY || !env.GITLAB_OAUTH_APP_ID) throw new Error("merge request provider is not configured");
+  const parsed = new URL(input.remote);
+  if (parsed.hostname !== "gitlab.cfdata.org") throw new Error("merge requests require a gitlab.cfdata.org remote");
+  const project = parsed.pathname.replace(/^\//, "").replace(/\.git$/, "").replace(/\/$/, "");
+  const response = await env.OAUTH_PROXY.oauthFetch(input.ownerId, env.GITLAB_OAUTH_APP_ID, new Request(`https://gitlab.cfdata.org/api/v4/projects/${encodeURIComponent(project)}/merge_requests`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ source_branch: input.sourceBranch, target_branch: targetBranch, title: input.title, description: input.description ?? "" }),
+  }));
+  if (!response.ok) throw new Error(`merge request creation failed: HTTP ${response.status}`);
+  const body = await response.json() as { web_url?: string; iid?: number };
+  if (!body.web_url) throw new Error("merge request creation response omitted web_url");
+  return { url: body.web_url, iid: body.iid };
 }

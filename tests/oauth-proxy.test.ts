@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { api } from "../src/http.ts";
-import { findGitLabApplication, MemoryOAuthFlowStore } from "../src/oauth-proxy.ts";
+import { findGitLabApplication, KvOAuthFlowStore, MemoryOAuthFlowStore } from "../src/oauth-proxy.ts";
 
 const headers = { "content-type": "application/json", "x-cloudbox-internal-token": "i", "x-cloudbox-owner": "alice" };
 const gitlab = { id: "gitlab-app", hostname: "gitlab-access.cfdata.org", hostAliases: ["gitlab.cfdata.org"] };
@@ -21,6 +21,21 @@ describe("OAuth proxy GitLab selection", () => {
   });
 });
 
+describe("durable OAuth flow owner state", () => {
+  it("stores and consumes callback owner state through KV", async () => {
+    const map = new Map<string, string>();
+    const kv = {
+      put: async (key: string, value: string) => { map.set(key, value); },
+      get: async (key: string) => map.get(key) ?? null,
+      delete: async (key: string) => { map.delete(key); },
+    } as unknown as KVNamespace;
+    const store = new KvOAuthFlowStore(kv);
+    await store.put("state", "Alice", 600);
+    expect(await store.consume("state")).toBe("alice");
+    expect(await store.consume("state")).toBeNull();
+  });
+});
+
 describe("internal GitLab connection routes", () => {
   it("remains internal-only and never returns OAuth tokens", async () => {
     const OAUTH_PROXY = proxy();
@@ -34,7 +49,7 @@ describe("internal GitLab connection routes", () => {
 
   it("starts and completes auth through the server-held broker", async () => {
     const OAUTH_PROXY = proxy();
-    const env = { CLOUDBOX_INTERNAL_TOKEN: "i", OAUTH_PROXY };
+    const env = { CLOUDBOX_INTERNAL_TOKEN: "i", OAUTH_PROXY, OAUTH_FLOW_STORE: new MemoryOAuthFlowStore() };
     const start = await api.fetch(new Request("https://cloudbox.test/api/personal-computers/alice/integrations/gitlab/connect", { method: "POST", headers }), env);
     expect(await start.json()).toMatchObject({ authorizationUrl: "https://authorize.example", applicationId: "gitlab-app" });
     expect(OAUTH_PROXY.startAuth).toHaveBeenCalledWith("alice", { appId: "gitlab-app" });

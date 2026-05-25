@@ -46,6 +46,11 @@ const OAUTH_TOKEN_CACHE = await KVNamespace("cloudbox-oauth-token-cache", {
   adopt: true,
 });
 
+const OAUTH_FLOW_KV = await KVNamespace("cloudbox-oauth-flow-state", {
+  title: isProd ? "cloudbox-oauth-flow-state" : `${app.stage}-cloudbox-oauth-flow-state`,
+  adopt: true,
+});
+
 const OAUTH_CLIENT = DurableObjectNamespace("OAUTH_CLIENT", {
   className: "OAuthClient",
   sqlite: true,
@@ -144,6 +149,7 @@ export const WORKER = await Worker("cloudbox-worker", {
     CLOUDBOX_DESKTOP_RUNNER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",
     OAUTH_PROXY: OAUTH_PROXY_WORKER,
+    OAUTH_FLOW_KV,
     ...(process.env.GITLAB_OAUTH_APP_ID
       ? { GITLAB_OAUTH_APP_ID: process.env.GITLAB_OAUTH_APP_ID }
       : {}),

@@ -25,6 +25,19 @@ export type OAuthFlowStore = {
   consume(state: string): Promise<string | null>;
 };
 
+export class KvOAuthFlowStore implements OAuthFlowStore {
+  constructor(private readonly kv: KVNamespace) {}
+  async put(state: string, ownerId: string, ttlSeconds = 600): Promise<void> {
+    await this.kv.put(`oauth-flow:${state}`, ownerId.toLowerCase(), { expirationTtl: ttlSeconds });
+  }
+  async consume(state: string): Promise<string | null> {
+    const key = `oauth-flow:${state}`;
+    const ownerId = await this.kv.get(key);
+    if (ownerId) await this.kv.delete(key);
+    return ownerId;
+  }
+}
+
 export class MemoryOAuthFlowStore implements OAuthFlowStore {
   private readonly states = new Map<string, string>();
   async put(state: string, ownerId: string): Promise<void> { this.states.set(state, ownerId.toLowerCase()); }
