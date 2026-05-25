@@ -22,7 +22,7 @@ export async function mountPrivateRepo(env: RepoWorkflowEnv, input: { ownerId: s
   const repoKey = remoteRepoKey(input.remote);
   if (!(await env.computerGrants.has(ownerId, computerId, "git_repo_read", repoKey))) throw new Error(`repository authorization required: git_repo_read:${repoKey}`);
   const sandbox = await prepareOwnerComputer(env, { id: ownerId });
-  await enableOwnerGitLabTransport(sandbox, { id: ownerId });
+  await enableOwnerGitLabTransport(env, sandbox, { id: ownerId });
   const branch = input.branch?.trim() || "main";
   const result = await sandbox.exec("cloudbox-mount-repo", {
     cwd: "/home/user",
@@ -41,7 +41,7 @@ export async function publishBranch(env: RepoWorkflowEnv, input: { ownerId: stri
   const repoKey = remoteRepoKey(input.remote);
   if (!(await env.computerGrants.has(ownerId, computerId, "git_repo_write", repoKey))) throw new Error(`publication approval required: git_repo_write:${repoKey}`);
   const sandbox = await prepareOwnerComputer(env, { id: ownerId });
-  await enableOwnerGitLabTransport(sandbox, { id: ownerId });
+  await enableOwnerGitLabTransport(env, sandbox, { id: ownerId });
   const result = await sandbox.exec(`git push origin HEAD:${JSON.stringify(input.branch)}`, { cwd: input.path, timeout: 120_000, origin: "internal" });
   if (!result.success) throw new Error(result.stderr || result.stdout || "branch push failed");
   return { path: input.path, remote: input.remote, branch: input.branch, repoKey, output: result.stdout ?? "" };

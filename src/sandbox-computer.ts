@@ -10,6 +10,7 @@ export type ComputerSandbox = {
 export type SandboxComputerBindings = {
   CLOUDBOX_SANDBOX?: DurableObjectNamespace;
   getComputerSandbox?: (ownerKey: string) => ComputerSandbox;
+  configureComputerTransport?: (ownerKey: string, params: { ownerId: string; computerId: string }) => Promise<void>;
 };
 
 export type ComputerOwner = {
@@ -51,8 +52,13 @@ export async function prepareOwnerComputer(env: SandboxComputerBindings, owner: 
   return sandbox;
 }
 
-export async function enableOwnerGitLabTransport(sandbox: ComputerSandbox, owner: ComputerOwner): Promise<void> {
-  if (!sandbox.configureGitLabTransport) throw new Error("computer GitLab transport is not available in this runtime");
+export async function enableOwnerGitLabTransport(env: SandboxComputerBindings, sandbox: ComputerSandbox, owner: ComputerOwner): Promise<void> {
   const id = owner.id.trim().toLowerCase();
-  await sandbox.configureGitLabTransport({ ownerId: id, computerId: `personal:${id}` });
+  const params = { ownerId: id, computerId: `personal:${id}` };
+  if (sandbox.configureGitLabTransport) return sandbox.configureGitLabTransport(params);
+  if (env.configureComputerTransport) return env.configureComputerTransport(`computer:${id}`, params);
+  if (!env.CLOUDBOX_SANDBOX) throw new Error("computer GitLab transport is not available in this runtime");
+  const stub = env.CLOUDBOX_SANDBOX.get(env.CLOUDBOX_SANDBOX.idFromName(`computer:${id}`)) as unknown as { configureGitLabTransport?: (input: typeof params) => Promise<void> };
+  if (!stub.configureGitLabTransport) throw new Error("computer GitLab transport is not available in this runtime");
+  await stub.configureGitLabTransport(params);
 }
