@@ -22,7 +22,4 @@ RUN chmod +x /usr/local/bin/artifact-fs /usr/local/bin/cloudbox-mount-repo
 
 RUN rm -rf /home/user && mkdir -p /home/user/.config /home/user/src
 
-ENV XDG_CONFIG_HOME=/home/user/.config \
-    HOME=/home/user
-
 WORKDIR /home/user
