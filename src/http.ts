@@ -541,6 +541,7 @@ function runnerForRun(env: CloudboxBindings, row: RunRecord): unknown {
 
 function authorize(request: Request, spec: ComputerSpec | null, env: CloudboxBindings): Response | null {
   if (isPublicDemoSpec(spec)) return null;
+  if (env.CLOUDBOX_INTERNAL_TOKEN && request.headers.get("x-cloudbox-internal-token") === env.CLOUDBOX_INTERNAL_TOKEN) return null;
   const token = env.CLOUDBOX_API_TOKEN;
   if (!token) return null;
   const got = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? request.headers.get("x-cloudbox-token");
@@ -549,6 +550,7 @@ function authorize(request: Request, spec: ComputerSpec | null, env: CloudboxBin
 
 function authorizeAction(request: Request, action: string, env: CloudboxBindings): Response | null {
   if (request.headers.get("x-cloudbox-demo") === "1") return null;
+  if (env.CLOUDBOX_INTERNAL_TOKEN && request.headers.get("x-cloudbox-internal-token") === env.CLOUDBOX_INTERNAL_TOKEN) return null;
   const token = env.CLOUDBOX_API_TOKEN;
   if (!token) return null;
   const got = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? request.headers.get("x-cloudbox-token");
