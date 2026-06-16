@@ -7,7 +7,6 @@ import {
   Assets,
   DurableObjectNamespace,
   Container,
-  WorkerLoader,
 } from "alchemy/cloudflare";
 import { CloudflareStateStore, FileSystemStateStore } from "alchemy/state";
 
@@ -146,7 +145,6 @@ export const WORKER = await Worker("cloudbox-worker", {
     ARTIFACTS,
     CLOUDBOX_COMPUTER,
     CLOUDBOX_SANDBOX,
-    LOADER: WorkerLoader(),
     CLOUDBOX_RUNNER,
     CLOUDBOX_DESKTOP_RUNNER,
     CLOUDBOX_MODEL: "@cf/meta/llama-3.1-8b-instruct",

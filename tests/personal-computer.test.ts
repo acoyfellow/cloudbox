@@ -47,7 +47,7 @@ describe("durable personal computer slice", () => {
     expect((await response.json() as any).error).toBe("sandbox_unavailable");
   });
 
-  it("exposes a small authenticated Code Mode catalog and fails closed without Worker Loader", async () => {
+  it("exposes a small authenticated Code Mode catalog", async () => {
     const fake = sandboxBinding();
     const env = { CLOUDBOX_INTERNAL_TOKEN: "i", CLOUDBOX_SANDBOX: fake.namespace, getComputerSandbox: () => fake.namespace.get("computer:alice") };
     const headers = { "x-cloudbox-internal-token": "i", "x-cloudbox-owner": "alice" };
@@ -56,11 +56,6 @@ describe("durable personal computer slice", () => {
     expect((await catalog.json() as any).methods.map((method: any) => method.name)).toEqual([
       "info", "list", "read", "write", "exec", "repo_status", "repo_diff",
     ]);
-    const code = await api.fetch(new Request("https://cloudbox.test/api/personal-computers/alice/code", {
-      method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ code: "async () => computer.info({})" }),
-    }), env);
-    expect(code.status).toBe(400);
-    expect((await code.json() as any).detail).toMatch(/LOADER binding/);
   });
 
   it("uses the same owner computer for exec, write, and read after trusted delegation", async () => {

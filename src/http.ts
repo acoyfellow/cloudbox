@@ -9,14 +9,13 @@ import { buildGitLabRepoKey, type RepoGrantKind } from "./gitlab-egress.ts";
 import { D1ComputerGrantStore, type ComputerGrantStore } from "./computer-grants.ts";
 import { findGitLabApplication, KvOAuthFlowStore, type OAuthFlowStore, type OAuthProxyBinding } from "./oauth-proxy.ts";
 import { createMergeRequest, mountPrivateRepo, publishBranch } from "./repo-workflow.ts";
-import { COMPUTER_CODE_CATALOG, executeComputerCode } from "./computer-code-mode.ts";
+import { COMPUTER_CODE_CATALOG } from "./computer-code-mode.ts";
 
 export type CloudboxBindings = {
   CLOUDBOX_COMPUTER?: DurableObjectNamespace;
   CLOUDBOX_RUNNER?: unknown;
   CLOUDBOX_DESKTOP_RUNNER?: unknown;
   CLOUDBOX_SANDBOX?: SandboxComputerBindings["CLOUDBOX_SANDBOX"];
-  LOADER?: unknown;
   ARTIFACTS?: R2Bucket;
   DB?: D1Database;
   CLOUDBOX_API_TOKEN?: string;
@@ -246,20 +245,6 @@ api.get("/api/personal-computers/:owner/code/catalog", (c) => {
   const trusted = internalComputerOwner(c.req.raw, c.req.param("owner"), c.env);
   if (trusted) return trusted;
   return c.json({ ok: true, namespace: "computer", methods: COMPUTER_CODE_CATALOG });
-});
-
-api.post("/api/personal-computers/:owner/code", async (c) => {
-  const owner = c.req.param("owner");
-  const trusted = internalComputerOwner(c.req.raw, owner, c.env);
-  if (trusted) return trusted;
-  const body = await c.req.json().catch(() => null) as { code?: string } | null;
-  try {
-    const execution = await executeComputerCode(c.env, owner, body?.code ?? "");
-    if (execution.error) return jsonError(c, 400, "computer_code_failed", execution.error);
-    return c.json({ ok: true, result: execution.result, logs: execution.logs ?? [], methods: COMPUTER_CODE_CATALOG.map((method) => method.name) });
-  } catch (error) {
-    return jsonError(c, 400, "computer_code_failed", error instanceof Error ? error.message : String(error));
-  }
 });
 
 api.post("/api/personal-computers/:owner/exec", async (c) => {

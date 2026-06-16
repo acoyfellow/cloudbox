@@ -47,9 +47,7 @@
     "web"
   ],
   "dependencies": {
-    "@cloudflare/codemode": "^0.4.0",
     "@cloudflare/sandbox": "0.10.1",
-    "ai": "6.0.205",
     "alchemy": "^0.93.7",
     "better-result": "^2.7.0",
     "effect": "^4.0.0-beta.58",
