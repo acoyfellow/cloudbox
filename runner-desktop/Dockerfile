@@ -9,7 +9,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /runner
-COPY server.mjs /runner/server.mjs
+COPY runner/server.mjs /runner/server.mjs
 COPY runner-desktop/supervisord-desktop.conf /etc/supervisor/conf.d/cloudbox.conf
 
 ENV PORT=8080

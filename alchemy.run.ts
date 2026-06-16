@@ -120,8 +120,8 @@ const CLOUDBOX_DESKTOP_RUNNER = await Container(desktopRunnerResourceId, {
   name: desktopRunnerName,
   className: "CloudboxDesktopRunner",
   build: {
-    context: "./runner",
-    dockerfile: "../runner-desktop/Dockerfile",
+    context: ".",
+    dockerfile: "runner-desktop/Dockerfile",
   },
   instanceType: process.env.CLOUDBOX_DESKTOP_RUNNER_INSTANCE_TYPE || (isProd ? "standard-2" : "standard-1"),
   maxInstances: Number(process.env.CLOUDBOX_DESKTOP_RUNNER_MAX_INSTANCES || 1),
