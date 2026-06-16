@@ -23,9 +23,12 @@ function path(value: unknown, fallback = "/home/user"): string {
 export async function executeComputerCode(env: ComputerCodeBindings, ownerId: string, code: string): Promise<CodeExecution> {
   if (!env.LOADER) throw new Error("LOADER binding is required for Computer Code Mode");
   if (!code || new TextEncoder().encode(code).byteLength > 32_000) throw new Error("code is required and must be <= 32000 bytes");
-  const sandbox = await prepareOwnerComputer(env, { id: ownerId });
+  // Resolve the Sandbox inside each dispatched callback. Capturing a live RPC
+  // stub in the ToolDispatcher closure ties it to the main request session and
+  // workerd disposes that session before the loaded worker can call it.
+  const computer = () => prepareOwnerComputer(env, { id: ownerId });
   const exec = async (command: string, cwd: string, timeoutMs = 30_000) => {
-    const result = await sandbox.exec(command, { cwd, timeout: Math.min(Math.max(timeoutMs, 1), 120_000) });
+    const result = await (await computer()).exec(command, { cwd, timeout: Math.min(Math.max(timeoutMs, 1), 120_000) });
     return { ok: result.success, exitCode: result.exitCode ?? (result.success ? 0 : 1), stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
   };
   const fns: Record<string, (input: any) => Promise<unknown>> = {
@@ -33,14 +36,14 @@ export async function executeComputerCode(env: ComputerCodeBindings, ownerId: st
     list: async (input) => exec(`find ${JSON.stringify(path(input?.path))} -maxdepth ${Math.min(Math.max(Number(input?.depth ?? 1), 1), 4)} -print | head -500`, "/home/user"),
     read: async (input) => {
       const filePath = path(input?.path);
-      const file = await sandbox.readFile(filePath);
+      const file = await (await computer()).readFile(filePath);
       const content = typeof file.content === "string" ? file.content : file.content instanceof Uint8Array ? new TextDecoder().decode(file.content) : "";
       return { path: filePath, content };
     },
     write: async (input) => {
       const filePath = path(input?.path);
       if (typeof input?.content !== "string" || input.content.length > 200_000) throw new Error("content must be a string <= 200000 chars");
-      await sandbox.writeFile(filePath, input.content);
+      await (await computer()).writeFile(filePath, input.content);
       return { path: filePath, bytes: new TextEncoder().encode(input.content).byteLength };
     },
     exec: async (input) => {
