@@ -10,7 +10,7 @@ try {
   await page.getByText(/Define the run/i).waitFor();
   await page.getByText(/Inspect the proof/i).waitFor();
   await page.getByRole("button", { name: /Run in Cloudbox/i }).click();
-  await page.getByText(/cloudbox-container-ok/i).waitFor({ timeout: 60_000 });
+  await page.getByText("cloudbox-container-ok", { exact: true }).waitFor({ timeout: 60_000 });
   await page.getByText(/runner/i).first().waitFor();
   await page.getByText(/Verify/i).first().waitFor();
   console.log(`BROWSER_E2E_PASS ${baseUrl}`);
