@@ -21,5 +21,3 @@ COPY scripts/mount-artifact-fs-repo.sh /usr/local/bin/cloudbox-mount-repo
 RUN chmod +x /usr/local/bin/artifact-fs /usr/local/bin/cloudbox-mount-repo
 
 RUN rm -rf /home/user && mkdir -p /home/user/.config /home/user/src
-
-WORKDIR /home/user
