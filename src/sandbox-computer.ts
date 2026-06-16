@@ -32,7 +32,6 @@ export async function getOwnerComputer(env: SandboxComputerBindings, owner: Comp
   const { getSandbox } = await import("@cloudflare/sandbox");
   return getSandbox(env.CLOUDBOX_SANDBOX as never, key, {
     containerTimeouts: { instanceGetTimeoutMS: 120_000, portReadyTimeoutMS: 240_000 },
-    transport: "rpc",
   }) as unknown as ComputerSandbox;
 }
 
