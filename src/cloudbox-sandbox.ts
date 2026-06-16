@@ -8,9 +8,6 @@ import { computerEgressHandler, type ComputerEgressEnv, type ComputerEgressParam
  * executable. GitLab egress is registered fail-closed and enabled only for
  * configured GitLab hosts through the deliberately reviewed Containers patch. */
 export class CloudboxSandbox extends Sandbox<ComputerEgressEnv> {
-  // Added by the reviewed host-only HTTPS interception patch carried in
-  // patches/@cloudflare__containers@0.3.4-host-https.patch.
-  override interceptHttpsByHost = true;
   async configureGitLabTransport(params: ComputerEgressParams): Promise<void> {
     await this.setOutboundByHosts<ComputerEgressParams>({
       "gitlab.cfdata.org": { method: "gitlab", params },

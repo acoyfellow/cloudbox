@@ -7,7 +7,7 @@ RUN go mod download
 COPY vendor/artifact-fs/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /artifact-fs ./cmd/artifact-fs
 
-FROM docker.io/cloudflare/sandbox:0.10.1
+FROM docker.io/cloudflare/sandbox:0.12.1
 COPY vendor/certs/cloudflare-warp-ca.pem /usr/local/share/ca-certificates/cloudflare-warp-ca.crt
 RUN update-ca-certificates
 
