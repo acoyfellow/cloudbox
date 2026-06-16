@@ -87,6 +87,7 @@ const CLOUDBOX_COMPUTER = DurableObjectNamespace("CLOUDBOX_COMPUTER", {
 const CLOUDBOX_SANDBOX = await Container("cloudbox-computer", {
   name: isProd ? "cloudbox-computer" : `${app.stage}-cloudbox-computer`,
   className: "CloudboxSandbox",
+  scriptName: workerName,
   build: {
     context: ".",
     dockerfile: "computer/Dockerfile",
@@ -104,6 +105,7 @@ const runnerInstanceType = process.env.CLOUDBOX_RUNNER_INSTANCE_TYPE || (isProd 
 const CLOUDBOX_RUNNER = await Container(runnerResourceId, {
   name: runnerName,
   className: "CloudboxRunner",
+  scriptName: workerName,
   build: {
     context: "./runner",
     dockerfile: "Dockerfile",
@@ -119,6 +121,7 @@ const desktopRunnerName = process.env.CLOUDBOX_DESKTOP_RUNNER_NAME || (isProd ? 
 const CLOUDBOX_DESKTOP_RUNNER = await Container(desktopRunnerResourceId, {
   name: desktopRunnerName,
   className: "CloudboxDesktopRunner",
+  scriptName: workerName,
   build: {
     context: ".",
     dockerfile: "runner-desktop/Dockerfile",
