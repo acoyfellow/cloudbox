@@ -13,14 +13,29 @@ const headers = { authorization: `Bearer ${token}`, "content-type": "application
 async function request(path, init = {}) {
   const response = await fetch(`${url}${path}`, { ...init, headers });
   const body = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(`${init.method ?? "GET"} ${path} failed: ${response.status} ${JSON.stringify(body)}`);
+  if (!response.ok) throw Object.assign(new Error(`${init.method ?? "GET"} ${path} failed: ${response.status} ${JSON.stringify(body)}`), { status: response.status, body });
   return body;
 }
+async function createDesktopRun() {
+  let last;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await request("/api/runs", {
+        method: "POST",
+        body: JSON.stringify({ repo, verify: ["test -f package.json"], live: true, desktop: true, ttlSeconds: 3600 }),
+      });
+    } catch (error) {
+      last = error;
+      const failedId = error?.body?.runId;
+      if (failedId) await fetch(`${url}/api/runs/${encodeURIComponent(failedId)}`, { method: "DELETE", headers }).catch(() => undefined);
+      if (error?.status !== 503 || attempt === 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 5_000));
+    }
+  }
+  throw last;
+}
 
-const created = await request("/api/runs", {
-  method: "POST",
-  body: JSON.stringify({ repo, verify: ["test -f package.json"], live: true, desktop: true, ttlSeconds: 3600 }),
-});
+const created = await createDesktopRun();
 const runId = created.runId;
 if (!runId) throw new Error("desktop live run returned no runId");
 const shellUrl = `${url}/api/runs/${runId}/preview/shell/`;
