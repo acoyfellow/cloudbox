@@ -7,7 +7,7 @@ const checks = [
   check("build", ["bun", "run", "build"]),
   check("typecheck", ["bun", "run", "typecheck"]),
   check("test", ["bun", "run", "test"]),
-  grepCheck("homepage headline", "web/src/pages/index.astro", "Give your agents a computer."),
+  grepCheck("homepage headline", "web/src/pages/index.astro", "Fresh computers on Cloudflare."),
   grepCheck("homepage demo CTA", "web/src/pages/index.astro", "Try demo"),
   grepCheck("homepage docs CTA", "web/src/pages/index.astro", "Browse docs"),
   grepCheck("API docs mention runner receipts", "web/src/pages/docs/api.mdx", "runnerReceipts"),
