@@ -21,6 +21,8 @@ jobs:
           bun-version: latest
       - run: npm install -g pnpm@10.20.0
       - run: pnpm install --no-frozen-lockfile --ignore-scripts
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
       - name: Launch readiness
         run: node scripts/proof-launch-readiness.mjs
       - name: Runner readiness
