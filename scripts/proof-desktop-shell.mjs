@@ -28,7 +28,8 @@ async function createDesktopRun() {
       last = error;
       const failedId = error?.body?.runId;
       if (failedId) await fetch(`${url}/api/runs/${encodeURIComponent(failedId)}`, { method: "DELETE", headers }).catch(() => undefined);
-      if (error?.status !== 503 || attempt === 3) throw error;
+      const transient = error?.status === 503 || (error?.status === 500 && error?.body?.error === "runner_error" && /container request failed: 503/i.test(error?.body?.detail ?? ""));
+      if (!transient || attempt === 3) throw error;
       await new Promise((resolve) => setTimeout(resolve, attempt * 5_000));
     }
   }
