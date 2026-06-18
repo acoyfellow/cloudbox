@@ -1,53 +1,282 @@
 # Cloudbox
 
 [![check](https://github.com/acoyfellow/cloudbox/actions/workflows/check.yml/badge.svg)](https://github.com/acoyfellow/cloudbox/actions/workflows/check.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-black.svg)](./LICENSE)
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox)
 
-Cloudbox is a deploy-your-own Cloudflare Worker that hands an agent a real Linux box on a real repo and records what happens: receipts, artifacts, grades, and a replayable trail.
+**Durable Cloudflare computers for agents.**
 
-It is designed to move people from:
+Cloudbox gives an agent a clean Linux computer for real repository work. It can run a bounded proof once, or keep the computer alive so a human or agent can inspect files, execute follow-up commands, launch a dev preview, stop, resume, and fork the workspace.
 
-```txt
-homepage → demo → docs → source → deploy to Cloudflare
+Every run closes around evidence:
+
+```text
+repo + commands + verification
+            ↓
+Cloudflare Container
+            ↓
+receipts + diff + artifact + shareable run
 ```
+
+Cloudbox is the computer and proof layer—not another agent framework. Bring any agent that can call HTTP or use the included TypeScript adapters.
 
 ## Try it
 
-- Live app: https://cloudbox.coey.dev
-- Demo: https://cloudbox.coey.dev/demo
-- Docs: https://cloudbox.coey.dev/docs
-- Source: https://github.com/acoyfellow/cloudbox
-- Deploy: https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox
+- **App:** https://cloudbox.coey.dev
+- **Interactive demo:** https://cloudbox.coey.dev/demo
+- **Docs:** https://cloudbox.coey.dev/docs
+- **API reference:** https://cloudbox.coey.dev/docs/api
+- **Source:** https://github.com/acoyfellow/cloudbox
+
+## Two ways to use Cloudbox
+
+| Surface | Use it when | What you get |
+|---|---|---|
+| **Repo run** | You have a real Git repository and commands that prove the work | Fresh checkout, commands, verification, diff, artifact, lifecycle receipts |
+| **Typed workspace** | You want a constrained simulated environment with collaborators and a rubric | Files, hidden context, ask/submit actions, receipts, deterministic grading |
+
+Repo runs are the product center. Typed workspaces remain useful for training and evaluating agent trajectories.
 
 ## Quickstart
 
-```sh
+Requirements: Node.js 22+, Bun 1.3+, pnpm 10+, Docker or a compatible engine, and a Cloudflare account for deployed Containers.
+
+```bash
 git clone https://github.com/acoyfellow/cloudbox
 cd cloudbox
 pnpm install
 pnpm run dev
 ```
 
-Open the local URL and click **Demo**.
+Open the local URL and choose **Demo**.
+
+Useful checks:
+
+```bash
+pnpm run build
+pnpm run typecheck
+pnpm run test
+pnpm run demo:fast
+pnpm run runner:test
+```
+
+## Run a repository
+
+```bash
+curl -s https://cloudbox.coey.dev/api/runs \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{
+    "repo": "https://github.com/acoyfellow/cloudbox",
+    "commands": ["pnpm install --ignore-scripts"],
+    "verify": ["pnpm run build", "pnpm run test"],
+    "artifact": "HANDOFF.md",
+    "public": true
+  }'
+```
+
+The result includes:
+
+| Field | Meaning |
+|---|---|
+| `runId` | Stable run identity |
+| `ok` | Verification result |
+| `receipts` | Clone, command, verify, and diff events with output/timing |
+| `runnerReceipts` | Container start/readiness/request lifecycle evidence |
+| `diff` | Repository changes produced by the run |
+| `artifact` | Requested file returned for human inspection |
+| `publicUrl` | Shareable proof page when `public: true` |
+
+A failed verification returns HTTP `422` with the receipts preserved.
+
+## Keep a run alive
+
+Set `live: true` to retain the cloned repository for follow-up work. Live runs default to a one-hour TTL and accept `ttlSeconds` from 60 seconds to 30 days.
+
+```bash
+RUN_ID=$(curl -s https://cloudbox.coey.dev/api/runs \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{
+    "repo": "https://github.com/acoyfellow/cloudbox",
+    "verify": ["test -f package.json"],
+    "live": true,
+    "ttlSeconds": 3600
+  }' | jq -r .runId)
+```
+
+Then steer the same computer:
+
+```bash
+# Execute a follow-up command
+curl -s -X POST "https://cloudbox.coey.dev/api/runs/$RUN_ID/exec" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"command":"pwd && git status --short"}'
+
+# Read and write safe relative files
+curl -s "https://cloudbox.coey.dev/api/runs/$RUN_ID/read?path=README.md" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN"
+
+curl -s -X POST "https://cloudbox.coey.dev/api/runs/$RUN_ID/write" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"path":"notes/live.md","content":"hello from the live run"}'
+```
+
+### Dev preview
+
+A live run can start a development server and proxy HTTP/WebSocket traffic through one authenticated Cloudbox URL:
+
+```bash
+curl -s -X POST "https://cloudbox.coey.dev/api/runs/$RUN_ID/dev" \
+  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"command":"bun run dev --host 0.0.0.0","port":5173}'
+
+open "https://cloudbox.coey.dev/api/runs/$RUN_ID/preview/"
+```
+
+### Stop, resume, fork, delete
+
+```text
+POST   /api/runs/:id/stop     snapshot workspace to R2 and stop
+POST   /api/runs/:id/resume   restore the snapshot into a runner
+POST   /api/runs/:id/fork     snapshot and restore into an independent child
+DELETE /api/runs/:id          remove active and snapshotted run state
+```
+
+The TypeScript adapter at `cloudbox/live-run-tools` exposes the same lifecycle.
+
+## CLI helper
+
+```bash
+CLOUDBOX_API_TOKEN=... pnpm run live start \
+  https://github.com/acoyfellow/cloudbox \
+  "bun run dev --host 0.0.0.0" \
+  5173
+
+pnpm run live info
+pnpm run live exec "git status --short"
+pnpm run live read README.md
+pnpm run live write notes/live.md "hello"
+pnpm run live open
+pnpm run live stop
+pnpm run live resume
+pnpm run live fork
+pnpm run live delete
+```
+
+`live:sync` can push local text-file changes into the current live run.
+
+## Browser shell and desktop prototype
+
+A live run with `desktop: true` uses the heavier desktop runner. It exposes a browser terminal and a noVNC Chromium desktop through authenticated preview routes.
+
+```bash
+pnpm run live start \
+  https://github.com/acoyfellow/cloudbox \
+  "bun run dev --host 0.0.0.0" \
+  5173 \
+  --desktop
+
+pnpm run live shell
+pnpm run live desktop
+```
+
+This is a proving surface, not a promise of generic hosted SSH.
+
+## Bring your agent
+
+Cloudbox does not own the model loop.
+
+- **HTTP:** post JSON to `/api/runs`.
+- **TypeScript:** use `cloudbox/client` or `cloudbox/live-run-tools`.
+- **Think:** `createCloudboxTools()` exposes the typed workspace protocol.
+- **Any other harness:** call the API and treat receipts as evidence.
+
+A typical agent loop is:
+
+```text
+agent decides work
+  → creates a bounded Cloudbox run
+  → reads/writes/executes in the computer
+  → verifies explicitly
+  → returns receipts, diff, and artifact
+```
+
+## Personal durable computers and private GitLab
+
+Cloudbox also contains a private, owner-delegated computer slice used by trusted callers such as My AX:
+
+- one durable Sandbox computer per owner;
+- internal-token + explicit owner headers;
+- reviewed Computer Code Mode catalog;
+- GitLab OAuth through a separate broker;
+- short-lived repository grants;
+- explicit publication approval for write grants;
+- mount, branch publication, and merge-request operations.
+
+These routes are **not** ordinary public API-token endpoints. They require trusted owner delegation, and publication is intentionally separate from general computer execution.
+
+## Typed workspaces and grading
+
+The original evaluation surface remains available:
+
+```text
+POST /api/computers
+POST /api/brief
+GET  /api/c/:id/list
+GET  /api/c/:id/read?path=...
+POST /api/c/:id/write
+POST /api/c/:id/ask
+POST /api/c/:id/submit
+GET  /api/c/:id/receipts
+GET  /api/c/:id/grade
+GET  /api/c/:id/spec
+```
+
+A `ComputerSpec` defines:
+
+```text
+persona → filesystem → collaborators/private context → objectives → rubric
+```
+
+Every action writes a receipt. The grader replays receipts against structural matchers such as `read`, `readBefore`, `asked`, `askedOnly`, and `submitted`.
+
+## Architecture
+
+```text
+Cloudbox Worker
+  ├─ Astro app + HTTP API
+  ├─ D1 run/computer/grant indexes
+  ├─ R2 artifacts + live-run snapshots
+  ├─ ComputerDO typed workspace state
+  ├─ CloudboxRunner DO → lightweight Container
+  ├─ CloudboxDesktopRunner DO → desktop Container
+  └─ CloudboxSandbox DO → durable owner computer
+```
+
+### Runner paths
+
+| Runner | Default purpose | Public config |
+|---|---|---|
+| `CloudboxRunner` | Batch proof and normal live runs | `lite`, max 2 |
+| `CloudboxDesktopRunner` | Opt-in browser shell/desktop | `standard-1`, max 1 |
+| `CloudboxSandbox` | Durable owner computer | `standard-1`, max 5 |
+
+Production sizing is controlled by deployment environment variables and may differ from the public defaults.
 
 ## Deploy your own
 
-Cloudbox is built to be your Cloudbox. You fork, you deploy, you own the data plane. Cloudflare resources are provisioned through `alchemy.run.ts`:
+Cloudbox provisions its Worker, Durable Objects, Containers, D1, R2, static assets, and optional custom domain through `alchemy.run.ts`.
 
-- Worker for the web app and API
-- `CloudboxRunner` Durable Object that fronts a lightweight Cloudflare Container (`cloudbox-runner`) for normal proof execution
-- `CloudboxDesktopRunner` Durable Object that fronts a heavier browser-shell/desktop Container (`cloudbox-desktop-runner`) when a live run opts into `desktop: true`
-- `ComputerDO` Durable Object namespace for per-workspace state and receipts
-- R2 bucket for artifacts
-- D1 database for indexes and migrations
-- Static assets for the Astro app
-- Optional custom domain
+The verified path is the repository’s GitHub Actions deployment. Fork the repository and configure the production environment secrets documented in [the quickstart](https://cloudbox.coey.dev/docs/quickstart).
 
-The intended production path is GitHub Actions + Cloudflare. Use the Deploy button above, or fork and set these GitHub environment secrets:
+Core deployment values include:
 
-```txt
+```text
 CLOUDFLARE_ACCOUNT_ID
 CLOUDFLARE_API_TOKEN
 ALCHEMY_PASSWORD
@@ -56,217 +285,51 @@ CLOUDBOX_API_TOKEN
 CLOUDBOX_D1_DATABASE_ID
 ```
 
-> Status: the GitHub Actions deploy path is verified for this repo. The one-click Deploy to Cloudflare button is the public funnel and should be treated as experimental from a fresh external account until tested.
+Optional private-computer/GitLab integration uses additional broker, grant, and approval secrets. Do not copy those into a public client.
 
-The Cloudflare API token needs:
+> The Deploy to Cloudflare button is the public funnel, but should remain labeled experimental until a clean external-account deployment is repeatedly proven.
 
-```txt
-Account read
-Workers Scripts edit
-Workers Tail read
-Workers Containers read/write
-D1 edit
-R2 edit
-Secrets Store edit
-Zone read/edit if using a custom domain
-```
+## Security model
 
-Production resource names:
+- API-token authentication protects non-demo run and workspace APIs.
+- Demo mode is constrained to public GitHub repositories and short allowlisted commands.
+- Live preview routes remain behind Cloudbox authentication.
+- Public run pages exist only when a run was explicitly created with `public: true`.
+- Durable personal-computer routes require trusted internal owner delegation.
+- Private repository access uses scoped OAuth/grants; write publication requires a separate approval capability.
+- Cloudbox returns receipts and evidence, but running arbitrary repository commands still grants code execution inside the selected Container. Treat tokens and deployment ownership accordingly.
 
-```txt
-Worker:          cloudbox
-Container:       cloudbox-runner
-Runner DO class: CloudboxRunner
-Runner container app: cloudbox-runner-v2
-Desktop runner:  cloudbox-desktop-runner (CloudboxDesktopRunner)
-Workspace DO:    ComputerDO (CLOUDBOX_COMPUTER)
-D1:              cloudbox-prod
-R2:              cloudbox-artifacts
-State store:     alchemy-state-store
-```
+See [SECURITY.md](./SECURITY.md) for reporting and operational guidance.
 
-Runner sizing is configurable at deploy time:
+## What is shipped vs proving
 
-```txt
-CLOUDBOX_RUNNER_INSTANCE_TYPE=standard           # normal proof runner
-CLOUDBOX_RUNNER_MAX_INSTANCES=2
-CLOUDBOX_DESKTOP_RUNNER_INSTANCE_TYPE=standard-2 # desktop/browser-shell sessions
-CLOUDBOX_DESKTOP_RUNNER_MAX_INSTANCES=1
-```
+| Status | Capability |
+|---|---|
+| **Shipped** | Batch repo runs, verification, receipts, diffs, artifacts, public proof pages |
+| **Shipped** | Live run read/write/exec/dev preview/stop/resume/fork/delete |
+| **Shipped** | Typed workspace materialization, collaborators, receipts, deterministic grading |
+| **Shipped** | Agent-neutral HTTP and TypeScript adapters |
+| **Proving** | Desktop/browser-shell runner |
+| **Proving** | Durable owner computer and private GitLab grant/publication path |
+| **Experimental** | One-click Deploy to Cloudflare from an unrelated external account |
 
-Use GitHub environment variables for sizing. The workflow defaults production to `standard`; local Alchemy fallback is `lite`.
+## Project map
 
-## What a run looks like
-
-A run gives an agent a clean Linux container, a public repo, commands, verification, and an artifact to return. Cloudbox records the trail.
-
-```sh
-curl -s https://cloudbox.coey.dev/api/runs \
-  -H "authorization: Bearer $CLOUDBOX_API_TOKEN" \
-  -H "content-type: application/json" \
-  -d '{
-    "repo": "https://github.com/acoyfellow/cloudbox",
-    "commands": ["pnpm install --ignore-scripts"],
-    "verify": ["pnpm run build", "pnpm run test"],
-    "artifact": "HANDOFF.md"
-  }'
-```
-
-The response includes:
-
-- `runId` — stable id for looking up the run later when D1 is bound
-- `ok` — verification passed
-- `receipts` — per-step clone/command/verify events with exit codes, stdout, stderr, timestamps
-- `runnerReceipts` — container lifecycle events (boot, request, error) from the `CloudboxRunner` DO
-- `artifact` — `{ path, content }` of the requested file
-- `diff` — patch summary of changes made by the run
-
-## North star: steer a run while it is alive
-
-Cloudbox should stay centered on **runs**, not become a separate generic remote-development product. Today a run is clean, bounded, and proof-producing: clone a repo, execute commands, verify, return receipts and an artifact.
-
-The next scope is to make that same run temporarily interactive:
-
-- keep the repo filesystem available long enough for follow-up reads, writes, and commands
-- let a human and an agent steer the same remote computer through CLI or MCP
-- optionally start a dev process such as `bun run dev` and expose a secure preview URL for fast iteration
-- close the run back into Cloudbox's existing proof model: receipts, diff, artifact, and a shareable trail
-
-That north star extends `/api/runs`; it should not require Cloudbox to fork into a separate `/api/workspaces` product.
-
-## Bring your agent
-
-Cloudbox is agent-agnostic. Anything that can POST JSON can drive it. Patterns:
-
-- **HTTP only** — your agent posts to `/api/runs` and reads back receipts + artifact. No SDK required.
-- **Workspace protocol** — agents that want files, ask/submit semantics, and grading drive `/api/c/:id/*` after materializing a `ComputerSpec`.
-- **Think integration** — `createCloudboxTools()` from `src/think.ts` exposes `env_list / env_read / env_write / env_ask / env_submit` to a Think loop.
-- **Any framework** — OpenAI SDK, AI SDK, Mastra, custom — the API is just JSON.
-
-See `docs/recipes` for examples.
-
-## Demo flow
-
-The hosted demo runs a public GitHub repo in Cloudbox and shows the proof trail:
-
-1. runner lifecycle receipts from the `CloudboxRunner` Container
-2. clone/run/verify/diff receipts from the repo task
-3. one returned artifact for human inspection
-
-Run the local proof scripts:
-
-```sh
-pnpm run demo:fast
-pnpm run demo:browser
-```
-
-## Recipes
-
-### Fix a bug
-
-Use `reproduce`, `fix`, and `verify` so the result proves both failure and repair.
-
-```json
-{
-  "repo": "https://github.com/you/app",
-  "commands": ["npm test -- checkout || true"],
-  "verify": ["npm test -- checkout", "npm run build"],
-  "artifact": "HANDOFF.md"
-}
-```
-
-### Upgrade dependencies
-
-```json
-{
-  "repo": "https://github.com/you/app",
-  "commands": ["pnpm up"],
-  "verify": ["pnpm run build", "pnpm test"],
-  "artifact": "UPGRADE.md"
-}
-```
-
-### Investigate flakes
-
-```json
-{
-  "repo": "https://github.com/you/app",
-  "commands": ["npm run test:browser -- --repeat 5 || true"],
-  "verify": ["npm run test:browser -- --repeat 5"],
-  "artifact": "FLAKE_REPORT.md"
-}
-```
-
-## How it works
-
-Cloudbox has two layers:
-
-1. **Control plane** — Worker routes, `ComputerDO` for workspaces, R2 artifacts, D1 indexes, receipt grading.
-2. **Runner** — `CloudboxRunner` Durable Object wraps a Cloudflare Container that clones repos, runs commands, verifies, captures diff, and returns artifacts. Container lifecycle events flow back as `runnerReceipts`.
-
-The container image is in `runner/Dockerfile` and ships with `git`, `node`, `bun`, and `pnpm` preinstalled.
-
-## API reference
-
-Workspace protocol (per-`ComputerSpec`):
-
-```sh
-POST /api/computers
-POST /api/brief
-GET  /api/c/:id/list
-GET  /api/c/:id/read?path=README.md
-POST /api/c/:id/ask
-POST /api/c/:id/write
-POST /api/c/:id/submit
-GET  /api/c/:id/receipts
-GET  /api/c/:id/grade
-GET  /api/c/:id/spec
-```
-
-Real repo runs (Container-backed):
-
-```sh
-POST /api/runs
-GET  /api/runs/recent   # when D1 is bound
-GET  /api/runs/:runId   # when D1 is bound
-```
-
-```ts
-type RunInput = {
-  repo: string;          // public GitHub HTTPS repo
-  commands?: string[];   // setup / change / reproduce commands
-  verify?: string[];     // verification commands
-  artifact?: string;     // file to return, e.g. HANDOFF.md
-  timeoutMs?: number;
-};
-```
-
-Authenticated with `Authorization: Bearer $CLOUDBOX_API_TOKEN` (when the secret is set).
-
-## Tooling story
-
-- **pnpm** is the recommended package manager for installing Cloudbox and for CI. GitHub Actions uses `pnpm install --no-frozen-lockfile --ignore-scripts`.
-- **Bun** is still required by the Alchemy/development scripts and by the runner image. Install Bun ≥ 1.3 and Node ≥ 22.
-- The runner container ships with `git`, `node`, `bun`, and `pnpm`; recipe examples lean on pnpm, but your repo can run whatever commands it needs.
-
-## Development
-
-```sh
-pnpm run build
-pnpm run typecheck
-pnpm run test
-pnpm run demo:fast
-pnpm run demo:browser
-pnpm run runner:test
-```
-
-## Status
-
-Cloudbox is early. The deployed app, demo, receipts, artifacts, grading, deploy path, Cloudflare Container runner path, and shareable public run pages are in the repo. Real repo runs go through `POST /api/runs` and execute in the `CloudboxRunner` container. The next product step is interactive runs: preserving the same proof model while a human and an agent can steer files, commands, and an optional secure dev preview before the run closes.
-
-## Research lineage
-
-Cloudbox is inspired by computer-use research, but the product is real repo work for agents and humans: short feedback loops, visible receipts, Cloudflare Container execution, and proof you can inspect.
+| Path | Purpose |
+|---|---|
+| `src/http.ts` | Main API and authorization boundaries |
+| `src/container-runner.ts` | Repo-run and live-run protocol |
+| `src/runner-do.ts` | Container lifecycle Durable Objects |
+| `src/cloudbox-sandbox.ts` | Durable owner computer runtime |
+| `src/computer-code-mode.ts` | Reviewed durable-computer Code Mode catalog |
+| `src/computer-grants.ts` | Private repository grant authority |
+| `src/repo-workflow.ts` | Private mount/publish/MR workflow |
+| `src/spec.ts` / `src/computer-do.ts` | Typed workspace/evaluation surface |
+| `src/client.ts` | HTTP client |
+| `src/live-run-tools.ts` | Live-run agent adapter |
+| `web/` | Hosted app and documentation |
+| `runner/`, `runner-desktop/`, `computer/` | Container images |
+| `scripts/` | Local flows, E2E, deployment proofs |
 
 ## License
 

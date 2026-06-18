@@ -1,7 +1,7 @@
 {
   "name": "cloudbox",
   "version": "0.0.1",
-  "description": "Real Cloudflare workspaces for agents: repo runs, files, artifacts, receipts, and grading.",
+  "description": "Durable Cloudflare computers for agents: run repos, steer live workspaces, verify results, and return receipts.",
   "private": true,
   "type": "module",
   "exports": {
@@ -66,5 +66,14 @@
   "engines": {
     "bun": ">=1.3.0",
     "node": ">=22"
-  }
+  },
+  "homepage": "https://cloudbox.coey.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acoyfellow/cloudbox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/acoyfellow/cloudbox/issues"
+  },
+  "license": "MIT"
 }
