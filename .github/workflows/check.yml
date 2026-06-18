@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
@@ -26,8 +27,14 @@ jobs:
       - run: pnpm run test
         timeout-minutes: 3
 
+  # Deployment is deliberately separate from CI health. Enable automatic
+  # deploys with the production environment variable CLOUDBOX_AUTO_DEPLOY=true,
+  # or run this workflow manually after rotating/verifying Cloudflare tokens.
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && vars.CLOUDBOX_AUTO_DEPLOY == 'true'))
     needs: check
     runs-on: ubuntu-latest
     environment: production

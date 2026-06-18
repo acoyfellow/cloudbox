@@ -272,7 +272,7 @@ Production sizing is controlled by deployment environment variables and may diff
 
 Cloudbox provisions its Worker, Durable Objects, Containers, D1, R2, static assets, and optional custom domain through `alchemy.run.ts`.
 
-The verified path is the repository’s GitHub Actions deployment. Fork the repository and configure the production environment secrets documented in [the quickstart](https://cloudbox.coey.dev/docs/quickstart).
+The verified path is the repository’s GitHub Actions deployment. Fork the repository and configure the production environment secrets documented in [the quickstart](https://cloudbox.coey.dev/docs/quickstart). CI always runs on pushes; deployment runs manually by default. Set the production environment variable `CLOUDBOX_AUTO_DEPLOY=true` only after the Cloudflare account/token pair has been verified.
 
 Core deployment values include:
 
