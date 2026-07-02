@@ -1,2 +1,8 @@
 packages:
   - web
+
+onlyBuiltDependencies:
+  - esbuild
+  - msgpackr-extract
+  - sharp
+  - workerd

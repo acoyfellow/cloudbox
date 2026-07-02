@@ -29,8 +29,8 @@ Use recipes when you know the job and need the smallest working pattern.
     <p class="mt-1 text-sm leading-6">Continuously check the computer lifecycle: start, ready, response.</p>
   </a>
   <a href="/docs/recipes/workspace-protocol" class="rounded-lg border border-kumo-line bg-kumo-base p-4 hover:bg-kumo-elevated sm:col-span-2">
-    <div class="font-semibold text-kumo-default">Workspace protocol</div>
-    <p class="mt-1 text-sm leading-6">Use ComputerSpec workspaces for file tasks, collaborators, submissions, receipts, and grading.</p>
+    <div class="font-semibold text-kumo-default">Evaluation workspace protocol</div>
+    <p class="mt-1 text-sm leading-6">Secondary surface for typed ComputerSpec tasks, collaborators, submissions, receipts, and grading.</p>
   </a>
 </div>
 
@@ -39,7 +39,7 @@ Use recipes when you know the job and need the smallest working pattern.
 Every recipe should preserve the same shape:
 
 ```txt
-agent or CI decides work -> CloudboxRun or ComputerSpec -> fresh computer -> verify -> artifact + receipts
+repo -> fresh Cloudflare computer -> live steering -> explicit verification -> artifact + diff + receipts
 ```
 
 If the artifact is not caused by the run, it is not proof. If the receipt is missing, the claim did not happen.

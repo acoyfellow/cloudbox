@@ -5,9 +5,9 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/acoyfellow/cloudbox)
 
-**Durable Cloudflare computers for agents.**
+**Fresh Cloudflare computers for real repo work.**
 
-Cloudbox gives an agent a clean Linux computer for real repository work. It can run a bounded proof once, or keep the computer alive so a human or agent can inspect files, execute follow-up commands, launch a dev preview, stop, resume, and fork the workspace.
+Cloudbox gives an agent a clean Cloudflare computer with a real Git checkout. It can run a bounded proof once, or keep the computer alive so a human or agent can inspect files, execute follow-up commands, launch a dev preview, stop, resume, and fork the workspace.
 
 Every run closes around evidence:
 
@@ -29,18 +29,19 @@ Cloudbox is the computer and proof layer—not another agent framework. Bring an
 - **API reference:** https://cloudbox.coey.dev/docs/api
 - **Source:** https://github.com/acoyfellow/cloudbox
 
-## Two ways to use Cloudbox
+## Product path
 
-| Surface | Use it when | What you get |
-|---|---|---|
-| **Repo run** | You have a real Git repository and commands that prove the work | Fresh checkout, commands, verification, diff, artifact, lifecycle receipts |
-| **Typed workspace** | You want a constrained simulated environment with collaborators and a rubric | Files, hidden context, ask/submit actions, receipts, deterministic grading |
+```text
+repo → boot fresh Cloudflare computer → agent/human steers work → verify → artifact + diff + receipts
+```
 
-Repo runs are the product center. Typed workspaces remain useful for training and evaluating agent trajectories.
+Repo runs are the product center. Typed workspaces remain available for training and evaluation, and durable owner computers are an advanced/private authority surface.
 
 ## Quickstart
 
-Requirements: Node.js 22+, Bun 1.3+, pnpm 10+, Docker or a compatible engine, and a Cloudflare account for deployed Containers.
+Requirements: Node.js 22+, pnpm 10+, Bun 1.3+, Docker or a compatible engine, and a Cloudflare account for deployed Containers.
+
+Use **pnpm** for installs and workspace commands. Bun is still required because repo scripts use it to build the Astro web app and invoke Wrangler/Alchemy; the runner image also ships with `git`, `node`, `bun`, and `pnpm` so Cloudbox can work with real repositories.
 
 ```bash
 git clone https://github.com/acoyfellow/cloudbox
@@ -193,7 +194,7 @@ Cloudbox does not own the model loop.
 
 - **HTTP:** post JSON to `/api/runs`.
 - **TypeScript:** use `cloudbox/client` or `cloudbox/live-run-tools`.
-- **Think:** `createCloudboxTools()` exposes the typed workspace protocol.
+- **Think/evals:** `createCloudboxTools()` exposes the secondary typed workspace protocol.
 - **Any other harness:** call the API and treat receipts as evidence.
 
 A typical agent loop is:
@@ -222,7 +223,7 @@ These routes are **not** ordinary public API-token endpoints. They require trust
 
 ## Typed workspaces and grading
 
-The original evaluation surface remains available:
+This is the secondary evaluation surface, not the first public path. The original workspace protocol remains available:
 
 ```text
 POST /api/computers
@@ -317,7 +318,7 @@ See [SECURITY.md](./SECURITY.md) for reporting and operational guidance.
 
 | Path | Purpose |
 |---|---|
-| `src/http.ts` | Main API and authorization boundaries |
+| `src/http.ts` | App composition, public API routes, and shared authorization boundaries |
 | `src/container-runner.ts` | Repo-run and live-run protocol |
 | `src/runner-do.ts` | Container lifecycle Durable Objects |
 | `src/cloudbox-sandbox.ts` | Durable owner computer runtime |

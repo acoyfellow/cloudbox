@@ -4,46 +4,47 @@ export const prerender = true;
 import { Code } from "astro:components";
 import Base from "@/layouts/Base.astro";
 
-const primaryCode = `import { generateText } from "ai";
-import { createCloudbox } from "cloudbox/client";
-
-const cloudbox = createCloudbox({ token: process.env.CLOUDBOX_API_TOKEN });
-
-// 1. Boot a fresh computer with the repo already cloned.
-const box = await cloudbox.boot({
-  repo: "https://github.com/acoyfellow/cloudbox",
+const primaryCode = `const response = await fetch("https://cloudbox.coey.dev/api/runs", {
+  method: "POST",
+  headers: {
+    authorization: ` + "`" + `Bearer ${process.env.CLOUDBOX_API_TOKEN}` + "`" + `,
+    "content-type": "application/json",
+  },
+  body: JSON.stringify({
+    repo: "https://github.com/acoyfellow/cloudbox",
+    commands: ["pnpm install --ignore-scripts"],
+    verify: ["pnpm run build", "pnpm run test"],
+    artifact: "HANDOFF.md",
+    live: true,
+    ttlSeconds: 3600,
+    public: true,
+  }),
 });
 
-// 2. Your model decides by using tools that run in the box.
-await generateText({
-  model: yourModel,
-  tools: box.tools(["shell", "read", "write"]),
-  prompt: ` + "`" + `
-    grep for the demo empty state.
-    improve the copy.
-    run the tests.
-    write HANDOFF.md with what changed.
-  ` + "`" + `,
-});
-
-// 3. Cloudbox returns the human artifact and receipts.
-const proof = await box.submit("HANDOFF.md");
-console.log(proof.artifact.content);
-// receipts: grep → read → write → test → artifact`;
+const proof = await response.json();
+console.log(proof.runId, proof.ok);
+console.log(proof.artifact?.content);
+// receipts + runnerReceipts + diff + optional publicUrl`;
 
 const runs = [
-  ["Clone", "Start from a fresh checkout every time.", "/docs/concepts"],
-  ["Boot", "Create a Cloudflare Container runner for the task.", "/docs/architecture"],
-  ["Run", "Use shell, files, browser, deploy, MCP, or custom tools.", "/docs/recipes/browser-agent"],
-  ["Verify", "Execute explicit checks before anything counts.", "/docs/recipes/proof-runs"],
-  ["Return", "Hand back one artifact plus receipts.", "/docs/api"],
+  ["Repo", "Start from a real Git URL and a clean checkout.", "/docs/concepts"],
+  ["Boot", "Spin up a fresh Cloudflare Container for the task.", "/docs/architecture"],
+  ["Steer", "Exec, read/write files, and open an authenticated dev preview while it is live.", "/docs/api"],
+  ["Verify", "Run explicit checks before the work counts.", "/docs/recipes/proof-runs"],
+  ["Receipts", "Return lifecycle receipts, diff, and the requested artifact.", "/docs/api"],
+];
+
+const proofCards = [
+  ["Fresh computer", "A clean Cloudflare Container boots with the repo already cloned."],
+  ["Live steering", "Inspect files, run follow-up commands, write safe paths, and open preview URLs."],
+  ["Receipts", "Lifecycle evidence, command output, verification, diff, and one named artifact."],
 ];
 
 const learnMore = [
   ["Try the hosted demo", "Run a public GitHub repo and inspect the returned artifact and receipts.", "/demo"],
-  ["Bring your agent", "Use any model. Give it Cloudbox tools for repo work, and optionally a browser.", "/docs/recipes/bring-your-agent"],
-  ["Run it from CI", "Add the GitHub Actions smoke test and upload Cloudbox proof as an artifact.", "/docs/recipes/ci-cd"],
-  ["Deploy your own", "Create the Worker, Durable Objects, R2, D1, and Container runner in your account.", "/docs/deploy"],
+  ["Read the quickstart", "Install with pnpm, run the demo, and see exactly where Bun is used.", "/docs/quickstart"],
+  ["Bring your agent", "Use any model loop. Cloudbox is the repo computer and proof layer.", "/docs/recipes/bring-your-agent"],
+  ["Run it from CI", "Upload Cloudbox proof as a build artifact with commands, diff, and receipts.", "/docs/recipes/ci-cd"],
 ];
 ---
 
@@ -51,13 +52,12 @@ const learnMore = [
   <main class="mx-auto max-w-6xl overflow-x-clip px-4 py-14 md:py-20">
     <section class="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
       <div class="max-w-2xl">
-        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">For agent-run repo work.</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Fresh Cloudflare computers for agents.</p>
         <h1 class="mt-4 text-4xl font-semibold tracking-tight text-kumo-default sm:text-5xl md:text-6xl">
-          Fresh computers on Cloudflare.
+          Boot a repo computer. Steer real work. Review the proof.
         </h1>
         <p class="mt-6 text-base leading-7 text-kumo-strong sm:text-lg sm:leading-8">
-          Cloudbox gives agents a clean place to clone a repo, run commands, verify the result,
-          and return receipts plus one artifact for review.
+          Cloudbox gives your agent a clean Cloudflare Container with a real Git checkout. Keep it live for human steering, run explicit verification, then get receipts, diff, and the artifact that proves what happened.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
           <a
@@ -74,7 +74,6 @@ const learnMore = [
           </a>
         </div>
       </div>
-      </div>
 
       <div class="min-w-0 rounded-2xl border border-kumo-line bg-kumo-elevated/30 p-4 shadow-sm">
         <div
@@ -83,10 +82,18 @@ const learnMore = [
         >
           <Code code={primaryCode} lang="ts" theme="github-dark" />
         </div>
+        <div class="mt-4 grid gap-2 sm:grid-cols-3">
+          {proofCards.map(([title, detail]) => (
+            <div class="rounded-lg border border-kumo-line bg-kumo-bg/60 p-3">
+              <div class="text-sm font-semibold text-kumo-default">{title}</div>
+              <p class="mt-1 text-xs leading-5 text-kumo-strong">{detail}</p>
+            </div>
+          ))}
+        </div>
         <p class="mt-4 text-sm leading-6 text-kumo-strong">
-          Your model runs wherever your agent runs. Cloudbox tools execute inside the fresh computer.
+          Your agent calls Cloudbox over HTTP or through the TypeScript adapters. Cloudbox is not the model loop; it is the repo computer and proof layer.
           <a href="/docs/recipes/bring-your-agent" class="font-medium text-kumo-default underline decoration-kumo-line underline-offset-4 hover:text-kumo-strong">
-            Learn the agent pattern →
+            Bring your agent →
           </a>
         </p>
       </div>
@@ -96,9 +103,9 @@ const learnMore = [
       <div class="grid gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">How runs work</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">Cloudbox turns a structured plan into a verified artifact.</h2>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">One product path: repo → computer → steering → verification → proof.</h2>
           <p class="mt-3 text-sm leading-6 text-kumo-strong">
-            Cloudbox makes agent work inspectable by forcing it through the same lifecycle: clean checkout, real Container, explicit tool calls, verification, and one returned artifact.
+            A first run should be boringly concrete: clone a repository, boot a Cloudflare computer, let the agent work, inspect while it is live, then close with verification output, lifecycle receipts, a diff, and a human-readable artifact.
           </p>
         </div>
 
@@ -114,23 +121,23 @@ const learnMore = [
     </section>
 
     <section class="mt-10 rounded-2xl border border-kumo-line bg-kumo-base p-5 sm:p-6">
-      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">North star</p>
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-kumo-muted">Product center</p>
       <h2 class="mt-2 text-2xl font-semibold tracking-tight text-kumo-default">A run you can steer while it is alive.</h2>
       <p class="mt-3 max-w-4xl text-sm leading-6 text-kumo-strong">
-        Cloudbox stays run-shaped: boot a clean repo computer, let an agent work, and close with receipts plus an artifact. The next scope is making that same run interactive — files and commands that a human or agent can steer together, an optional secure dev preview, and the same proof trail when the run ends.
+        Cloudbox stays run-shaped: boot a clean repo computer, let an agent work, inspect files, execute follow-up commands, start an authenticated dev preview, and close with receipts plus an artifact. Stop, resume, and fork keep the same work reviewable without turning Cloudbox into a generic IDE or sandbox marketplace.
       </p>
       <div class="mt-4 grid gap-3 md:grid-cols-3">
         <div class="rounded-xl border border-kumo-line bg-kumo-elevated/25 p-4">
-          <h3 class="font-semibold text-kumo-default">Today</h3>
-          <p class="mt-2 text-sm leading-6 text-kumo-strong">Clean repo runs, explicit commands, verification, artifacts, and shareable receipts.</p>
+          <h3 class="font-semibold text-kumo-default">Repo computers</h3>
+          <p class="mt-2 text-sm leading-6 text-kumo-strong">A fresh checkout per task, real commands, live file access, authenticated dev preview, explicit verification, artifacts, and shareable receipts.</p>
         </div>
         <div class="rounded-xl border border-kumo-line bg-kumo-elevated/25 p-4">
-          <h3 class="font-semibold text-kumo-default">Next</h3>
-          <p class="mt-2 text-sm leading-6 text-kumo-strong">Keep a run open long enough to inspect files, execute follow-up commands, and start a dev process.</p>
+          <h3 class="font-semibold text-kumo-default">Live steering</h3>
+          <p class="mt-2 text-sm leading-6 text-kumo-strong">Humans can inspect the live repo, run follow-up commands, edit safe relative files, open preview URLs, and resume or fork work later.</p>
         </div>
         <div class="rounded-xl border border-kumo-line bg-kumo-elevated/25 p-4">
-          <h3 class="font-semibold text-kumo-default">Still Cloudbox</h3>
-          <p class="mt-2 text-sm leading-6 text-kumo-strong">The interaction ends as proof: receipts, diffs, artifacts, and a trail another person can review.</p>
+          <h3 class="font-semibold text-kumo-default">Receipts first</h3>
+          <p class="mt-2 text-sm leading-6 text-kumo-strong">Every claim points back to runner lifecycle evidence, command receipts, verification output, the diff, and a named artifact.</p>
         </div>
       </div>
     </section>

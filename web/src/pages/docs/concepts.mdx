@@ -2,23 +2,24 @@
 layout: "@/layouts/Doc.astro"
 title: "Concepts"
 eyebrow: "What's in a Cloudbox"
-description: "Cloudbox has two surfaces: runs (real repo work in a Cloudflare Container) and workspaces (typed specs materialized into a Durable Object). Both produce receipts."
+description: "Cloudbox centers on repo runs: fresh Cloudflare computers that can be steered while alive and closed into receipts, diff, and an artifact. Typed workspaces remain as a secondary evaluation surface."
 ---
 
-## Two surfaces, one trail
+## Repo computers first
 
-Cloudbox gives an agent two ways to act, both receipt-backed:
+Cloudbox gives an agent a fresh Cloudflare computer for real repo work. The default path is:
 
-- **Runs** (`POST /api/runs`) — point the agent at a real public GitHub repo and a list of commands. Execution happens inside the `CloudboxRunner` Durable Object, which fronts a Cloudflare Container. The response is `{ ok, receipts, runnerReceipts, artifact, diff }`.
-- **Workspaces** (`POST /api/computers` + `/api/c/:id/*`) — author a typed `ComputerSpec` and materialize it into a `ComputerDO`. The agent then reads files, asks collaborators, writes artifacts, submits decisions, and gets graded against a rubric.
+```text
+repo → boot computer → run commands → steer while live → verify → artifact + receipts
+```
 
-Pick the run surface when you have a real repo and a verification command. Pick the workspace surface when you want to constrain the agent's world and grade its trajectory.
+The product center is **runs** (`POST /api/runs`). Point the agent at a real repo and explicit commands. Execution happens inside the `CloudboxRunner` Durable Object, which fronts a Cloudflare Container. The response is `{ ok, receipts, runnerReceipts, artifact, diff }`.
+
+Typed **workspaces** (`POST /api/computers` + `/api/c/:id/*`) still exist for evaluation and constrained training tasks. Use them when you need a synthetic filesystem, hidden collaborator context, and deterministic grading. They are not the main public path.
 
 ## Runs are the product direction
 
-Cloudbox's north star extends the run surface instead of introducing a separate remote-development product. A run should be able to stay open long enough for a human and an agent to steer the same clean remote computer: inspect files, execute follow-up commands, optionally start a secure dev preview such as `bun run dev`, and then close into the same receipts, diff, artifact, and shareable trail Cloudbox already returns.
-
-That interactive run loop is the next scope. The current shipped run API is still bounded and batch-oriented.
+Cloudbox extends the run surface instead of introducing a separate remote-development product. A run can stay open long enough for a human and an agent to steer the same clean remote computer: inspect files, execute follow-up commands, start a secure dev preview such as `bun run dev`, stop, resume, fork, and then close into the same receipts, diff, artifact, and shareable trail Cloudbox returns for bounded runs.
 
 ## Runs
 
@@ -26,10 +27,14 @@ A run is the simplest unit of agent work. You hand Cloudbox:
 
 ```ts
 type RunInput = {
-  repo: string;          // public GitHub HTTPS repo
+  repo: string;          // public GitHub HTTPS repo, or scoped GitLab with auth=gitlab
   commands?: string[];   // setup / change / reproduce commands
   verify?: string[];     // verification commands
   artifact?: string;     // file to return, e.g. HANDOFF.md
+  public?: boolean;      // opt into a shareable proof page
+  live?: boolean;        // keep the computer alive for steering
+  ttlSeconds?: number;   // live-run TTL, 60 seconds to 30 days
+  desktop?: boolean;     // opt into the heavier desktop runner, requires live=true
   timeoutMs?: number;
 };
 ```

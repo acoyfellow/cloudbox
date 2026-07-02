@@ -6,7 +6,7 @@ const cards = [
   {
     href: "/docs/quickstart",
     title: "Quickstart",
-    body: "Deploy your own Cloudbox, call /api/runs, and inspect proof in minutes.",
+    body: "Deploy or run locally, call /api/runs, and inspect proof in minutes.",
   },
   {
     href: "/docs/demo",
@@ -16,17 +16,22 @@ const cards = [
   {
     href: "/docs/concepts",
     title: "Concepts",
-    body: "The two Cloudbox surfaces: real repo runs in a Cloudflare Container, and typed workspaces graded against a rubric.",
+    body: "Repo computers are the product center. Typed workspaces remain as a secondary evaluation surface.",
   },
   {
     href: "/docs/api",
     title: "API reference",
-    body: "Every endpoint with curl examples and full response shapes.",
+    body: "Repo-run, live-run, preview, and workspace endpoints with curl examples and response shapes.",
+  },
+  {
+    href: "/docs/recipes",
+    title: "Recipes",
+    body: "Bring your agent, run proof from CI, steer live work, and use optional advanced surfaces."
   },
   {
     href: "/docs/architecture",
     title: "Architecture",
-    body: "Worker control plane, CloudboxRunner Durable Object, Cloudflare Container, R2/D1/DO state. What runs where."
+    body: "Worker control plane, Container runners, live-run snapshots, R2/D1/DO state, and authority boundaries."
   },
 ];
 ---
@@ -34,7 +39,7 @@ const cards = [
 <Doc
   eyebrow="Documentation"
   title="Cloudbox docs"
-  description="Cloudbox gives my agents Cloudflare-native computers for real repo runs: commands to execute, files to inspect, artifacts to write, receipts to audit, and rubrics to grade. These docs show the seven-minute path, the demo run, the core concepts, and the API."
+  description="Cloudbox gives agents Cloudflare-native computers for real repo work: commands to execute, files to inspect, dev previews to steer, artifacts to return, and receipts to audit. These docs show the seven-minute path, the demo run, the core concepts, and the API."
 >
   <h2>Pick your path</h2>
   <div class="grid gap-3 sm:grid-cols-2">
@@ -56,13 +61,13 @@ const cards = [
     }
   </div>
 
-  <h2>North star</h2>
+  <h2>Product center</h2>
   <p>
-    Cloudbox should stay centered on runs. Today a run is a clean remote repo task that returns receipts, diff, and an artifact. The next scope is making that same run steerable while it is alive: file and command access for humans and agents, an optional secure dev preview such as a remote <code>bun run dev</code>, then the same reviewable proof trail when the run closes.
+    Cloudbox should stay centered on runs. A run is a clean remote repo computer that returns receipts, diff, and an artifact. Live runs can stay open for file and command access, an optional secure dev preview such as a remote <code>bun run dev</code>, stop/resume/fork lifecycle, and the same reviewable proof trail when the run closes.
   </p>
 
   <h2>Status</h2>
   <p>
-    Alpha. The deployed run path, shareable proof pages, <code>defineComputer</code> + <code>materialize</code> + <code>grade</code> surface, and Think integration are in the repo. Source on <a href="https://github.com/acoyfellow/cloudbox">GitHub</a>.
+    Alpha. Repo runs, live steering, dev preview, stop/resume/fork, shareable proof pages, and TypeScript adapters are in the repo. Desktop/browser-shell sessions, durable owner computers, and typed workspaces are advanced or evaluation surfaces. Source on <a href="https://github.com/acoyfellow/cloudbox">GitHub</a>.
   </p>
 </Doc>
