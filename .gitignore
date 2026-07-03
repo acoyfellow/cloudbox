@@ -14,3 +14,4 @@ web/dist/
 
 # Generated proof artifacts
 artifacts/
+.terrarium-workspace
