@@ -8,7 +8,8 @@
     "./client": "./src/client.ts",
     "./generate-proof": "./src/generate-proof.ts",
     "./agent-computer": "./src/agent-computer.ts",
-    "./live-run-tools": "./src/live-run-tools.ts"
+    "./live-run-tools": "./src/live-run-tools.ts",
+    "./think": "./src/think.ts"
   },
   "scripts": {
     "build": "bun --filter @cloudbox/web build",
