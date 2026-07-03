@@ -1,0 +1,175 @@
+---
+layout: "@/layouts/Doc.astro"
+title: "Tool plugins"
+eyebrow: "Recipe"
+description: "Turn a materialized Cloudbox into a typed tool set with createCloudboxTools, then hand those tools to any agent runner."
+---
+
+## What this is
+
+`createCloudboxTools` is the TypeScript adapter for the [workspace protocol](/docs/recipes/workspace-protocol). Where the workspace protocol shows the raw `curl` calls, this reference shows how to expose the same five actions to a model as callable tools.
+
+It returns a plain object of five tools — `env_list`, `env_read`, `env_write`, `env_ask`, `env_submit` — one per protocol endpoint. Every call is recorded as a receipt the rubric grader replays, so a run stays gradeable without any extra bookkeeping.
+
+The `env_` prefix is deliberate: an agent framework's own workspace tools own the unprefixed names (`read`, `write`, `list`, …) for the model's scratchpad. Cloudbox is the *outside* world the agent operates in, so it lives in its own namespace.
+
+## Import
+
+`createCloudboxTools` is exported from the `cloudbox/think` subpath:
+
+```ts
+import { createCloudboxTools } from "cloudbox/think";
+```
+
+## The interface
+
+You call `createCloudboxTools` with a `CloudboxToolsConfig`:
+
+```ts
+type CloudboxToolFetcher = (
+  request: Request | string,
+  init?: RequestInit,
+) => Promise<Response>;
+
+type CloudboxToolsConfig = {
+  /** The materialized computer's id, e.g. "cb_abcd1234". */
+  computerId: string;
+  /**
+   * How to talk to the Cloudbox Worker. Pass:
+   *   - A Service Binding: env.CLOUDBOX.fetch.bind(env.CLOUDBOX)
+   *   - The same Worker's own fetch: fetch
+   *   - Anything that resolves to a Cloudbox Worker URL.
+   */
+  fetcher: CloudboxToolFetcher;
+  /** Origin for URL construction. Defaults to "https://cloudbox.local". */
+  origin?: string;
+  /** Extra headers sent with every request. */
+  headers?: Record<string, string>;
+};
+```
+
+Only `computerId` and `fetcher` are required. `CloudboxToolFetcher`, `CloudboxToolsConfig`, and the returned `CloudboxTool` type are all exported from `cloudbox/think`.
+
+Each returned tool matches this shape:
+
+```ts
+type CloudboxTool = {
+  description: string;
+  parameters: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required: string[];
+  };
+  execute: (args: Record<string, unknown>) => Promise<unknown>;
+};
+```
+
+`parameters` is a JSON Schema object, so the tool set drops straight into any framework that speaks JSON-schema tool definitions. If you want Zod-validated inputs, wrap each tool with `tool(...)` from the `ai` package — `description` + `parameters` + `execute` is the underlying contract either way.
+
+## The five tools
+
+| Tool | Endpoint | Required args | Purpose |
+|---|---|---|---|
+| `env_list` | `GET /api/c/:id/list` | — | List every file with paths, kinds, and states. |
+| `env_read` | `GET /api/c/:id/read` | `path` | Read a file's content. |
+| `env_write` | `POST /api/c/:id/write` | `path`, `content` | Create or overwrite a file. |
+| `env_ask` | `POST /api/c/:id/ask` | `who`, `message` | Ask a collaborator (by id) a question. |
+| `env_submit` | `POST /api/c/:id/submit` | `objective` | Submit a decision/deliverable for an objective. Required to complete a run. |
+
+`env_submit` also accepts optional `decision` and `notes`. Each call hits `/api/c/<computerId>/…` on the configured `fetcher`; a non-2xx response throws `cloudbox <path>: <status> <body>`.
+
+## Minimal runnable example
+
+A tool is just `{ description, parameters, execute }`, so the smallest complete plugin needs nothing but `createCloudboxTools` and a materialized `computerId`. Pass a Service Binding as the `fetcher` inside a Worker so no network round-trip or token is needed:
+
+```ts
+import { createCloudboxTools } from "cloudbox/think";
+
+const tools = createCloudboxTools({
+  computerId: "cb_abcd1234",
+  fetcher: env.CLOUDBOX.fetch.bind(env.CLOUDBOX), // Service Binding
+});
+
+// A tool is { description, parameters, execute } — call it directly.
+const files = await tools.env_list.execute({});
+const readme = await tools.env_read.execute({ path: "README.md" });
+
+await tools.env_write.execute({
+  path: "artifacts/handoff.md",
+  content: "ready",
+});
+
+await tools.env_submit.execute({
+  objective: "launch-readiness",
+  decision: "share",
+  notes: "Inspected the high-signal files and left receipts.",
+});
+```
+
+## Driving with the reference runner
+
+The live demo island (`web/src/components/SampleAgent.tsx`) shows the same tools handed to the in-repo reference runner (`src/agent.ts`, imported there via a relative source path). It materializes a computer, builds the tools, drives them, then grades the receipts:
+
+```ts
+import {
+  materialize,
+  list as listFiles,
+  grade,
+  type Materialized,
+} from "@/lib/api";
+import { createCloudboxTools } from "../../../src/think.ts";
+import { runCloudboxAgent } from "../../../src/agent.ts";
+import type { ComputerSpec } from "../../../src/spec.ts";
+
+async function runOnce(spec: ComputerSpec) {
+  // 1. Materialize a computer from a typed spec.
+  const computer: Materialized = await materialize({
+    ...spec,
+    runId: `browser-${Date.now()}`,
+  });
+
+  // 2. Build the tool set for that computer.
+  const tools = createCloudboxTools({
+    computerId: computer.id,
+    origin: window.location.origin,
+    fetcher: globalThis.fetch.bind(globalThis),
+    headers: { "x-cloudbox-demo": "1" },
+  });
+
+  // 3. Hand the tools to any runner. runCloudboxAgent calls
+  //    tools.env_list / env_read / env_write / env_ask / env_submit.
+  await runCloudboxAgent(spec, tools);
+
+  // 4. Grade the run from its receipts.
+  const result = await grade(computer.id);
+  console.log(`${result.score}/${result.max}`);
+}
+```
+
+`runCloudboxAgent` and the `ComputerSpec`, `AgentTools` types live in `src/` and are consumed via relative imports inside this repo. `createCloudboxTools` is the one piece published on the `cloudbox` package (`cloudbox/think`) for external consumers.
+
+## Registering with an agent
+
+Because the tools are keyed by name, spreading them into a framework's tool map is enough to register them. Inside a Cloudflare Worker, pass a Service Binding as the `fetcher` so no network round-trip or token is needed:
+
+```ts
+import { Think } from "@cloudflare/think";
+import { createCloudboxTools } from "cloudbox/think";
+
+export class TriageAgent extends Think<Env> {
+  getTools() {
+    return createCloudboxTools({
+      computerId: this.env.CLOUDBOX_COMPUTER_ID,
+      fetcher: this.env.CLOUDBOX.fetch.bind(this.env.CLOUDBOX),
+    });
+  }
+}
+```
+
+The reference runner in `src/agent.ts` shows the invocation contract a runner is expected to honor: it reads the tool map's `env_*` entries and calls `execute(args)` on each, recording the observation. Any runner that does the same — including one wired into the Vercel AI SDK via `tool(...)` — works unchanged.
+
+## Related surfaces
+
+- [Workspace protocol](/docs/recipes/workspace-protocol) — the raw HTTP endpoints these tools wrap.
+- [Bring your agent](/docs/recipes/bring-your-agent) — the `cloudbox/client` adapter for `/api/runs` repo execution.
+- `cloudbox/live-run-tools` — `createLiveRunTools` for steering a live container run.
