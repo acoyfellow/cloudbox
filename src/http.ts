@@ -113,19 +113,30 @@ api.post("/api/runs", async (c) => {
   // are safe to share. Auto-mark them public so the hosted demo produces
   // shareable proof URLs without the caller having to opt in.
   const sharedInput: ContainerRunRequest = demo && input ? { ...input, public: true } : (input as ContainerRunRequest);
+  const recordInput = redactWorktreeSource(sharedInput);
   const publicUrl = (sharedInput?.public === true)
     ? `${new URL(c.req.url).origin}/runs/${runId}`
     : undefined;
   try {
     const result = await runInContainer(runner, sharedInput, runId);
-    await recordRun(c.env.DB, { id: runId, input: sharedInput, result, status: result.ok ? "passed" : "failed" });
+    await recordRun(c.env.DB, { id: runId, input: recordInput, result, status: result.ok ? "passed" : "failed" });
     return c.json({ runId, publicUrl, ...result }, result.ok ? 200 : 422);
   } catch (error) {
     const result = { ok: false, error: "runner_error", detail: String(error instanceof Error ? error.stack ?? error.message : error) };
-    await recordRun(c.env.DB, { id: runId, input: sharedInput, result, status: "error" });
+    await recordRun(c.env.DB, { id: runId, input: recordInput, result, status: "error" });
     return c.json({ runId, publicUrl, ...result }, 500);
   }
 });
+
+function redactWorktreeSource(input: ContainerRunRequest): ContainerRunRequest {
+  const ws = input.worktreeSource;
+  if (!ws) return input;
+  if (ws.kind === "patch") {
+    const { patch, ...provenance } = ws;
+    return { ...input, worktreeSource: { ...provenance, patch: `[redacted ${ws.bytes} bytes, sha256 ${ws.sha256}]` } };
+  }
+  return input;
+}
 
 api.post("/api/runs/:id/exec", async (c) => {
   const auth = authorize(c.req.raw, null, c.env);
@@ -349,6 +360,32 @@ function validateRun(input: ContainerRunRequest | null): Response | null {
   if (input.desktop === true && input.live !== true) return jsonErrorResponse(400, "bad_run", "desktop requires live=true");
   if (input.ttlSeconds !== undefined && (!Number.isInteger(input.ttlSeconds) || (input.ttlSeconds as number) < 60 || (input.ttlSeconds as number) > 2_592_000)) return jsonErrorResponse(400, "bad_run", "ttlSeconds must be an integer between 60 and 2592000");
   if (input.ttlSeconds !== undefined && input.live !== true) return jsonErrorResponse(400, "bad_run", "ttlSeconds requires live=true");
+  const wsError = validateWorktreeSource(input.worktreeSource);
+  if (wsError) return wsError;
+  return null;
+}
+
+const WORKTREE_MAX_BYTES = 5 * 1024 * 1024;
+const WORKTREE_MAX_FILES = 500;
+
+function validateWorktreeSource(ws: unknown): Response | null {
+  if (ws === undefined) return null;
+  if (!ws || typeof ws !== "object") return jsonErrorResponse(400, "bad_worktree", "worktreeSource must be an object");
+  const source = ws as Record<string, unknown>;
+  if (source.kind !== "patch" && source.kind !== "archive") {
+    return jsonErrorResponse(400, "bad_worktree", `worktreeSource.kind must be "patch" or "archive" (got ${JSON.stringify(source.kind)})`);
+  }
+  if (source.kind === "archive") {
+    return jsonErrorResponse(501, "worktree_archive_unsupported", "worktreeSource.kind \"archive\" is not yet supported; use kind \"patch\"");
+  }
+  if (typeof source.patch !== "string" || !source.patch) return jsonErrorResponse(400, "bad_worktree", "patch must be a non-empty string");
+  if (typeof source.base !== "string" || !/^[0-9a-f]{7,64}$/i.test(source.base)) return jsonErrorResponse(400, "bad_worktree", "base must be a git commit sha");
+  const bytes = typeof source.bytes === "number" ? source.bytes : Buffer.byteLength(source.patch, "utf8");
+  if (bytes > WORKTREE_MAX_BYTES) return jsonErrorResponse(413, "worktree_too_large", `worktree patch is ${bytes} bytes; limit is ${WORKTREE_MAX_BYTES}`);
+  if (typeof source.files === "number" && source.files > WORKTREE_MAX_FILES) return jsonErrorResponse(413, "worktree_too_many_files", `worktree patch touches ${source.files} files; limit is ${WORKTREE_MAX_FILES}`);
+  if (/^GIT binary patch$/m.test(source.patch) || /^Binary files .* differ$/m.test(source.patch)) {
+    return jsonErrorResponse(415, "worktree_binary_unsupported", "binary files in the worktree patch are not supported; commit or exclude them");
+  }
   return null;
 }
 

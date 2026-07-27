@@ -1,9 +1,32 @@
+export type WorktreePatchSource = {
+  kind: "patch";
+  patch: string;
+  base: string;
+  includeUntracked: boolean;
+  includeIgnored: boolean;
+  files: number;
+  bytes: number;
+  sha256: string;
+};
+
+export type WorktreeArchiveSource = {
+  kind: "archive";
+  objectId?: string;
+  includeIgnored?: boolean;
+  files?: number;
+  bytes?: number;
+  sha256?: string;
+};
+
+export type WorktreeSource = WorktreePatchSource | WorktreeArchiveSource;
+
 export type ContainerRunRequest = {
   repo: string;
   ref?: string;
   auth?: "none" | "gitlab";
   clone?: "shallow" | "blobless";
   sparse?: string[];
+  worktreeSource?: WorktreeSource;
   commands?: string[];
   verify?: string[];
   artifact?: string;
@@ -18,7 +41,7 @@ export type ContainerRunRequest = {
 };
 
 export type ContainerRunReceipt = {
-  type: "clone" | "command" | "verify" | "diff";
+  type: "clone" | "command" | "verify" | "diff" | "worktree";
   cmd: string;
   code: number | null;
   signal: string | null;

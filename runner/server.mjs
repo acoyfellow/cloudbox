@@ -118,6 +118,29 @@ async function handleRun(input) {
       if (sparse.code !== 0) return { ok: false, workspace: root, receipts };
     }
 
+    const ws = input.worktreeSource;
+    if (ws && ws.kind === "patch" && typeof ws.patch === "string" && ws.patch) {
+      const patchPath = join(root, ".worktree.patch");
+      await writeFile(patchPath, ws.patch);
+      const applied = await run(`git apply --3way --whitespace=nowarn ${shell(patchPath)}`, workspace, input.timeoutMs);
+      receipts.push({
+        type: "worktree",
+        cmd: applied.cmd,
+        code: applied.code,
+        signal: applied.signal,
+        stdout: applied.stdout,
+        stderr: applied.stderr,
+        startedAt: applied.startedAt,
+        finishedAt: applied.finishedAt,
+        base: typeof ws.base === "string" ? ws.base : null,
+        files: typeof ws.files === "number" ? ws.files : null,
+        bytes: typeof ws.bytes === "number" ? ws.bytes : null,
+        sha256: typeof ws.sha256 === "string" ? ws.sha256 : null,
+      });
+      await rm(patchPath, { force: true });
+      if (applied.code !== 0) return { ok: false, workspace: root, receipts };
+    }
+
     for (const cmd of commands) receipts.push({ type: "command", ...(await run(String(cmd), workspace, input.timeoutMs)) });
     for (const cmd of verify) receipts.push({ type: "verify", ...(await run(String(cmd), workspace, input.timeoutMs)) });
 
